@@ -9,7 +9,153 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      api_usage: {
+        Row: {
+          api_type: string
+          credits_used: number
+          id: string
+          model_used: string
+          timestamp: string
+          tokens_input: number
+          tokens_output: number
+          user_id: string
+        }
+        Insert: {
+          api_type: string
+          credits_used: number
+          id?: string
+          model_used: string
+          timestamp?: string
+          tokens_input: number
+          tokens_output: number
+          user_id: string
+        }
+        Update: {
+          api_type?: string
+          credits_used?: number
+          id?: string
+          model_used?: string
+          timestamp?: string
+          tokens_input?: number
+          tokens_output?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ideas: {
+        Row: {
+          ai_generated_data: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          problem_solved: string | null
+          project_id: string
+          target_audience: string | null
+          title: string
+        }
+        Insert: {
+          ai_generated_data?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          problem_solved?: string | null
+          project_id: string
+          target_audience?: string | null
+          title: string
+        }
+        Update: {
+          ai_generated_data?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          problem_solved?: string | null
+          project_id?: string
+          target_audience?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          stage: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          stage?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          stage?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          credits_remaining: number
+          credits_reset_date: string
+          email: string
+          id: string
+          subscription_tier: string
+        }
+        Insert: {
+          created_at?: string
+          credits_remaining?: number
+          credits_reset_date?: string
+          email: string
+          id: string
+          subscription_tier?: string
+        }
+        Update: {
+          created_at?: string
+          credits_remaining?: number
+          credits_reset_date?: string
+          email?: string
+          id?: string
+          subscription_tier?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
