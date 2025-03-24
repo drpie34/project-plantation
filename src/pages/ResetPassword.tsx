@@ -14,13 +14,18 @@ const ResetPassword = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
+  // Get current site URL for redirects
+  const getSiteUrl = () => {
+    return window.location.origin;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: `${getSiteUrl()}/update-password`,
       });
 
       if (error) {

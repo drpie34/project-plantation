@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Create a new user profile when signing up
   const createProfile = async (userId: string, email: string) => {
     try {
+      // Use RPC to create user profile from server-side
       const { error } = await supabase
         .from('users')
         .insert({
@@ -67,7 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           email,
           subscription_tier: 'free',
           credits_remaining: 100,
-          credits_reset_date: new Date().toISOString(),
+          credits_reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         });
 
       if (error) {
@@ -78,12 +79,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Get current site URL for redirects
+  const getSiteUrl = () => {
+    return window.location.origin;
+  };
+
   // Sign up with email and password
   const signUp = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${getSiteUrl()}/login`,
+        }
       });
 
       if (error) {
@@ -172,6 +181,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -188,6 +198,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Got existing session:', session);
       setSession(session);
       setUser(session?.user ?? null);
       

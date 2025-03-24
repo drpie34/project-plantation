@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +17,7 @@ const Signup = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const { signUp, isAuthenticated } = useAuth();
 
   const validatePassword = () => {
@@ -38,10 +41,13 @@ const Signup = () => {
     }
     
     setIsLoading(true);
+    setErrorMessage('');
     
     const { error } = await signUp(email, password);
     
-    if (!error) {
+    if (error) {
+      setErrorMessage(error.message);
+    } else {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
@@ -61,11 +67,17 @@ const Signup = () => {
         <CardHeader>
           <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
           <CardDescription className="text-center">
-            Sign up for SaaS Wizard to get started
+            Sign up for App Whisperer to get started
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {errorMessage && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

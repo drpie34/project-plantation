@@ -32,7 +32,7 @@ const DashboardLayout = () => {
               className="text-xl font-bold text-gray-900 cursor-pointer" 
               onClick={() => navigate('/dashboard')}
             >
-              SaaS Wizard
+              App Whisperer
             </h1>
           </div>
           <div className="flex items-center space-x-4">

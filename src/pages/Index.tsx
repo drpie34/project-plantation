@@ -18,7 +18,7 @@ const Index = () => {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">SaaS Wizard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">App Whisperer</h1>
           </div>
           <div className="flex items-center space-x-4">
             <Button 
@@ -41,7 +41,7 @@ const Index = () => {
               Build Your SaaS Faster with AI
             </h2>
             <p className="mt-6 text-xl text-gray-500 max-w-2xl mx-auto">
-              SaaS Wizard helps entrepreneurs generate ideas, create strategies, and plan their SaaS projects with the power of AI.
+              App Whisperer helps entrepreneurs generate ideas, create strategies, and plan their SaaS projects with the power of AI.
             </p>
             <div className="mt-10">
               <Button size="lg" onClick={() => navigate('/signup')} className="px-8 py-6 text-lg">
@@ -79,12 +79,12 @@ const Index = () => {
       <footer className="bg-gray-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-xl font-bold">SaaS Wizard</h3>
+            <h3 className="text-xl font-bold">App Whisperer</h3>
             <p className="mt-2 text-gray-300">
               Powered by GPT-4o-mini
             </p>
             <p className="mt-6 text-gray-400 text-sm">
-              © 2023 SaaS Wizard. All rights reserved.
+              © 2023 App Whisperer. All rights reserved.
             </p>
           </div>
         </div>
