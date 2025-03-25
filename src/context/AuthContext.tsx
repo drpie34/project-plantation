@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Fetch user profile data
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -47,6 +48,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        
+        // If no profile was found, create one
+        if (error.code === 'PGRST116') {
+          console.log('No user profile found, creating one...');
+          const newProfile = await createProfile(userId);
+          return newProfile;
+        }
+        
         return null;
       }
 
@@ -57,25 +66,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Create a new user profile when signing up
-  const createProfile = async (userId: string, email: string) => {
+  // Create a new user profile when signing up or when profile is missing
+  const createProfile = async (userId: string, email?: string) => {
     try {
-      // Use RPC to create user profile from server-side
-      const { error } = await supabase
+      const userEmail = email || user?.email;
+      
+      if (!userEmail) {
+        console.error('No email available to create profile');
+        return null;
+      }
+      
+      console.log('Creating profile for user:', userId, 'with email:', userEmail);
+      
+      const { data, error } = await supabase
         .from('users')
         .insert({
           id: userId,
-          email,
+          email: userEmail,
           subscription_tier: 'free',
           credits_remaining: 100,
           credits_reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error creating user profile:', error);
+        return null;
       }
+
+      console.log('User profile created successfully:', data);
+      return data as User;
     } catch (error) {
       console.error('Error in createProfile:', error);
+      return null;
     }
   };
 
@@ -186,8 +210,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
-          setProfile(profile);
+          const userProfile = await fetchProfile(session.user.id);
+          setProfile(userProfile);
         } else {
           setProfile(null);
         }
@@ -203,8 +227,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id).then(profile => {
-          setProfile(profile);
+        fetchProfile(session.user.id).then(userProfile => {
+          setProfile(userProfile);
         });
       }
       
