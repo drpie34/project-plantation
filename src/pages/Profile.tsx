@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SubscriptionTierSwitcher } from '@/components/SubscriptionTierSwitcher';
 
 const Profile = () => {
   const { user, profile } = useAuth();
@@ -15,6 +15,7 @@ const Profile = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   const { toast } = useToast();
 
   const validatePassword = () => {
@@ -71,6 +72,10 @@ const Profile = () => {
     }
   };
 
+  const handleTierChange = () => {
+    window.location.reload();
+  };
+
   if (!user || !profile) {
     return (
       <div className="flex justify-center py-16">
@@ -92,10 +97,11 @@ const Profile = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details">Account Details</TabsTrigger>
                 <TabsTrigger value="password">Change Password</TabsTrigger>
+                <TabsTrigger value="subscription">Subscription</TabsTrigger>
               </TabsList>
               
               <TabsContent value="details" className="mt-6 space-y-6">
@@ -163,6 +169,14 @@ const Profile = () => {
                   </Button>
                 </form>
               </TabsContent>
+              
+              <TabsContent value="subscription" className="mt-6">
+                <SubscriptionTierSwitcher 
+                  currentTier={profile.subscription_tier as 'free' | 'basic' | 'premium'} 
+                  userId={user.id}
+                  onTierChange={handleTierChange}
+                />
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
@@ -186,11 +200,15 @@ const Profile = () => {
             </div>
             
             <div className="pt-4">
-              <Button className="w-full" disabled={profile.subscription_tier !== 'free'}>
-                Upgrade Plan
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => setActiveTab('subscription')}
+              >
+                Change Subscription
               </Button>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                Upgrade options will be available in future updates
+                Testing mode: Try different tiers without payment
               </p>
             </div>
           </CardContent>

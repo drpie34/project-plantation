@@ -36,6 +36,11 @@ export type ApiUsage = {
   model_used: string;
   tokens_input: number;
   tokens_output: number;
+  tokens_thinking?: number;
   credits_used: number;
   timestamp: string;
+  features_used?: {
+    webSearch?: boolean;
+    extendedThinking?: boolean;
+  };
 };

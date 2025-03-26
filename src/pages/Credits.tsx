@@ -5,11 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { ApiUsage } from '@/types/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const Credits = () => {
   const [apiUsage, setApiUsage] = useState<ApiUsage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchApiUsage = async () => {
@@ -62,7 +66,39 @@ const Credits = () => {
 
   const categoryUsage = calculateCategoryUsage();
   const totalUsed = categoryUsage.openai + categoryUsage.claude + categoryUsage.other;
-  const initialCredits = 100; // Starting credits for free tier
+  
+  // Get tier info
+  const getTierInfo = () => {
+    switch (profile?.subscription_tier) {
+      case 'premium':
+        return {
+          name: 'Premium',
+          initialCredits: 2000,
+          models: ['GPT-4o', 'GPT-4o-mini', 'Claude 3.5 Sonnet', 'Claude 3.7 Sonnet'],
+          features: ['Extended Thinking', 'Web Search', 'Large Document Analysis'],
+          color: 'bg-purple-100 text-purple-800 border-purple-300'
+        };
+      case 'basic':
+        return {
+          name: 'Basic',
+          initialCredits: 500,
+          models: ['GPT-4o', 'GPT-4o-mini with Web Search'],
+          features: ['Market Research with Web Search', 'Project Planning'],
+          color: 'bg-blue-100 text-blue-800 border-blue-300'
+        };
+      default:
+        return {
+          name: 'Free',
+          initialCredits: 100,
+          models: ['GPT-4o-mini'],
+          features: ['Basic idea generation', 'Simple market research'],
+          color: 'bg-green-100 text-green-800 border-green-300'
+        };
+    }
+  };
+
+  const tierInfo = getTierInfo();
+  const initialCredits = tierInfo.initialCredits;
 
   if (!profile) {
     return (
@@ -74,7 +110,12 @@ const Credits = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-bold">Credits & Usage</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">Credits & Usage</h2>
+        <Badge className={`text-sm py-1 px-3 ${tierInfo.color}`}>
+          {tierInfo.name} Plan
+        </Badge>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
@@ -103,13 +144,13 @@ const Credits = () => {
                   <span className="text-sm">OpenAI</span>
                   <span className="text-sm font-medium">{categoryUsage.openai} credits</span>
                 </div>
-                <Progress value={(categoryUsage.openai / totalUsed) * 100} className="bg-blue-100" />
+                <Progress value={(categoryUsage.openai / (totalUsed || 1)) * 100} className="bg-blue-100" />
                 
                 <div className="flex justify-between items-center mt-3">
                   <span className="text-sm">Claude</span>
                   <span className="text-sm font-medium">{categoryUsage.claude} credits</span>
                 </div>
-                <Progress value={(categoryUsage.claude / totalUsed) * 100} className="bg-purple-100" />
+                <Progress value={(categoryUsage.claude / (totalUsed || 1)) * 100} className="bg-purple-100" />
                 
                 {categoryUsage.other > 0 && (
                   <>
@@ -117,7 +158,7 @@ const Credits = () => {
                       <span className="text-sm">Other</span>
                       <span className="text-sm font-medium">{categoryUsage.other} credits</span>
                     </div>
-                    <Progress value={(categoryUsage.other / totalUsed) * 100} className="bg-gray-100" />
+                    <Progress value={(categoryUsage.other / (totalUsed || 1)) * 100} className="bg-gray-100" />
                   </>
                 )}
               </div>
@@ -137,7 +178,7 @@ const Credits = () => {
             
             <div>
               <p className="text-sm text-gray-500">Monthly Credits</p>
-              <p className="font-medium">100 credits</p>
+              <p className="font-medium">{initialCredits} credits</p>
             </div>
             
             <div>
@@ -146,12 +187,34 @@ const Credits = () => {
             </div>
             
             <div className="pt-2 border-t mt-4">
-              <p className="text-sm text-gray-500 mb-2">Credit Costs</p>
-              <div className="text-sm">
-                <p>• Idea Generation: 5 credits</p>
-                <p>• Market Research: 10 credits</p>
-                <p>• Project Planning: 15 credits</p>
+              <p className="text-sm text-gray-500 mb-2">Available AI Models</p>
+              <div className="space-y-1">
+                {tierInfo.models.map((model, index) => (
+                  <p key={index} className="text-sm">• {model}</p>
+                ))}
               </div>
+            </div>
+            
+            <div className="pt-2 border-t mt-4">
+              <p className="text-sm text-gray-500 mb-2">Plan Features</p>
+              <div className="space-y-1">
+                {tierInfo.features.map((feature, index) => (
+                  <p key={index} className="text-sm">• {feature}</p>
+                ))}
+              </div>
+            </div>
+            
+            <div className="pt-4 mt-4">
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => navigate('/profile')}
+              >
+                Change Subscription Tier
+              </Button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Test all tiers without payment
+              </p>
             </div>
           </CardContent>
         </Card>
