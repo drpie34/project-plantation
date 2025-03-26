@@ -20,6 +20,7 @@ import MarketResearch from "./pages/MarketResearch";
 import DocumentAnalysis from "./pages/DocumentAnalysis";
 import Profile from "./pages/Profile";
 import Credits from "./pages/Credits";
+import IdeasHub from "./pages/IdeasHub";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/projects/:projectId/planning" element={<ProjectPlanning />} />
               <Route path="/projects/:projectId/market-research" element={<MarketResearch />} />
               <Route path="/projects/:projectId/document-analysis" element={<DocumentAnalysis />} />
+              <Route path="/ideas" element={<IdeasHub />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/credits" element={<Credits />} />
             </Route>

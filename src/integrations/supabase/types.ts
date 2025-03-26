@@ -50,36 +50,117 @@ export type Database = {
           },
         ]
       }
-      ideas: {
+      idea_categories: {
         Row: {
-          ai_generated_data: Json | null
+          color: string
           created_at: string
           description: string | null
           id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      idea_category_links: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          idea_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          idea_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          idea_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_category_links_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "idea_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "idea_category_links_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ideas: {
+        Row: {
+          ai_generated_data: Json | null
+          collaboration_settings: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          inspiration_sources: Json | null
           problem_solved: string | null
           project_id: string
+          status: string
+          tags: string[] | null
           target_audience: string | null
           title: string
+          version: number
+          version_history: Json[] | null
         }
         Insert: {
           ai_generated_data?: Json | null
+          collaboration_settings?: Json | null
           created_at?: string
           description?: string | null
           id?: string
+          inspiration_sources?: Json | null
           problem_solved?: string | null
           project_id: string
+          status?: string
+          tags?: string[] | null
           target_audience?: string | null
           title: string
+          version?: number
+          version_history?: Json[] | null
         }
         Update: {
           ai_generated_data?: Json | null
+          collaboration_settings?: Json | null
           created_at?: string
           description?: string | null
           id?: string
+          inspiration_sources?: Json | null
           problem_solved?: string | null
           project_id?: string
+          status?: string
+          tags?: string[] | null
           target_audience?: string | null
           title?: string
+          version?: number
+          version_history?: Json[] | null
         }
         Relationships: [
           {
