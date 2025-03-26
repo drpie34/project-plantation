@@ -143,10 +143,13 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
         ...ideaData,
         status: ideaData.status as "draft" | "developing" | "ready" | "archived",
         tags: ideaData.tags || [],
-        inspiration_sources: ideaData.inspiration_sources || {},
-        collaboration_settings: ideaData.collaboration_settings || { visibility: 'private' },
+        // Properly cast JSON fields to their expected types
+        inspiration_sources: (ideaData.inspiration_sources || {}) as Record<string, any>,
+        collaboration_settings: (ideaData.collaboration_settings || { visibility: 'private' }) as { 
+          visibility: 'private' | 'team' | 'public' 
+        },
         version: ideaData.version || 1,
-        version_history: ideaData.version_history || []
+        version_history: (ideaData.version_history || []) as Record<string, any>[]
       };
       
       // Add category links if categories are selected
