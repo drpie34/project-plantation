@@ -6,15 +6,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
+// Define the type for the API response
+interface ApiGatewayResponse {
+  message: string;
+  configuredKeys: Record<string, string>;
+  receivedAction?: string;
+}
+
 export function ApiGatewayStatus() {
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<ApiGatewayResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const checkApiGateway = async () => {
     setLoading(true);
     try {
-      const result = await callApiGateway('check-status');
+      const result = await callApiGateway('check-status') as ApiGatewayResponse;
       setStatus(result);
       toast({
         title: 'API Gateway Check',
