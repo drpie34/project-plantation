@@ -80,7 +80,7 @@ const Index = () => {
       <footer className="bg-gray-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <Logo size="lg" className="mx-auto mb-4" />
+            <Logo size="xl" className="mx-auto mb-4" />
             <p className="mt-2 text-gray-300">
               Powered by GPT-4o-mini
             </p>

@@ -13,10 +13,10 @@ export function Logo({ className, onClick, size = 'md' }: LogoProps) {
   const navigate = useNavigate();
   
   const sizeClasses = {
-    sm: 'h-8',
-    md: 'h-10',
-    lg: 'h-14',
-    xl: 'h-20'
+    sm: 'h-10',
+    md: 'h-14',
+    lg: 'h-20',
+    xl: 'h-28'
   };
   
   const handleClick = () => {

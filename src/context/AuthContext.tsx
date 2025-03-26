@@ -202,25 +202,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('Auth state changed:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const userProfile = await fetchProfile(session.user.id);
-          setProfile(userProfile);
+          // Use setTimeout to prevent potential deadlocks
+          setTimeout(() => {
+            fetchProfile(session.user.id).then(userProfile => {
+              setProfile(userProfile);
+              setLoading(false);
+            });
+          }, 0);
         } else {
           setProfile(null);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
-    // Check for existing session
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Got existing session:', session);
       setSession(session);
@@ -229,10 +233,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         fetchProfile(session.user.id).then(userProfile => {
           setProfile(userProfile);
+          setLoading(false);
         });
+      } else {
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return () => {
