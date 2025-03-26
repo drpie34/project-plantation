@@ -2,12 +2,14 @@
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/ui/logo';
+import { LayoutDashboard, FolderOpen, Lightbulb, CreditCard } from 'lucide-react';
 
 const DashboardLayout = () => {
   const { isAuthenticated, loading, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Show loading state
   if (loading) {
@@ -23,6 +25,13 @@ const DashboardLayout = () => {
     return <Navigate to="/login" />;
   }
 
+  const isActive = (path: string) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -32,6 +41,7 @@ const DashboardLayout = () => {
             <Logo 
               size="xl" 
               onClick={() => navigate('/dashboard')}
+              className="cursor-pointer"
             />
           </div>
           <div className="flex items-center space-x-4">
@@ -60,24 +70,35 @@ const DashboardLayout = () => {
         <div className="bg-white w-full md:w-64 shadow-sm p-4 md:p-6">
           <nav className="space-y-2">
             <Button 
-              variant="ghost" 
+              variant={isActive('/dashboard') ? "default" : "ghost"}
               className="w-full justify-start" 
               onClick={() => navigate('/dashboard')}
             >
+              <LayoutDashboard className="h-4 w-4 mr-2" />
               Dashboard
             </Button>
             <Button 
-              variant="ghost" 
+              variant={isActive('/projects') ? "default" : "ghost"}
               className="w-full justify-start" 
               onClick={() => navigate('/projects')}
             >
+              <FolderOpen className="h-4 w-4 mr-2" />
               Projects
             </Button>
             <Button 
-              variant="ghost" 
+              variant={isActive('/ideas') ? "default" : "ghost"}
+              className="w-full justify-start" 
+              onClick={() => navigate('/ideas')}
+            >
+              <Lightbulb className="h-4 w-4 mr-2" />
+              Ideas Hub
+            </Button>
+            <Button 
+              variant={isActive('/profile/credits') ? "default" : "ghost"}
               className="w-full justify-start" 
               onClick={() => navigate('/profile/credits')}
             >
+              <CreditCard className="h-4 w-4 mr-2" />
               Credits
             </Button>
           </nav>

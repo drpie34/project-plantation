@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { Lightbulb, ArrowRight } from 'lucide-react';
 
 export default function ProjectDetail() {
   const { projectId } = useParams();
@@ -77,10 +78,14 @@ export default function ProjectDetail() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
         <p className="text-gray-500">{project.description || 'No description provided'}</p>
-        <div className="mt-2">
+        <div className="mt-2 flex gap-2">
           <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 capitalize">
             {project.stage}
           </span>
+          
+          <Link to="/ideas" className="inline-flex items-center text-sm text-blue-600 hover:underline">
+            View all ideas in Ideas Hub <ArrowRight className="ml-1 h-3 w-3" />
+          </Link>
         </div>
       </div>
       
@@ -156,12 +161,26 @@ export default function ProjectDetail() {
       
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Generated Ideas</h2>
-          <Button asChild variant="outline">
-            <Link to={`/projects/${projectId}/generate-ideas`}>
-              Generate New Ideas
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold">Generated Ideas</h2>
+            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
+              {ideas.length}
+            </span>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/ideas">
+                <Lightbulb className="mr-2 h-4 w-4" />
+                Ideas Hub
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to={`/projects/${projectId}/generate-ideas`}>
+                Generate New Ideas
+              </Link>
+            </Button>
+          </div>
         </div>
         
         {ideas.length === 0 ? (
@@ -180,9 +199,14 @@ export default function ProjectDetail() {
         ) : (
           <div className="grid gap-4">
             {ideas.map((idea) => (
-              <Card key={idea.id}>
+              <Card key={idea.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
-                  <CardTitle>{idea.title}</CardTitle>
+                  <CardTitle className="flex justify-between items-start">
+                    <span>{idea.title}</span>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full capitalize">
+                      {idea.status}
+                    </span>
+                  </CardTitle>
                   {idea.target_audience && (
                     <CardDescription>Target: {idea.target_audience}</CardDescription>
                   )}
@@ -195,6 +219,15 @@ export default function ProjectDetail() {
                       <p>{idea.problem_solved}</p>
                     </div>
                   )}
+                  
+                  <div className="mt-4 flex justify-end">
+                    <Link 
+                      to={`/ideas?filter=project&projectId=${projectId}`} 
+                      className="text-sm text-blue-600 hover:underline flex items-center"
+                    >
+                      View in Ideas Hub <ArrowRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -203,4 +236,4 @@ export default function ProjectDetail() {
       </div>
     </div>
   );
-}
+};
