@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +11,7 @@ import { TagInput } from '@/components/TagInput';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 
 export const ProfileDetails = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +45,7 @@ export const ProfileDetails = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          ...formData
-        })
-        .eq('id', user.id);
+      const { error } = await updateProfile(formData);
       
       if (error) throw error;
       

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 export const NotificationSettings = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -33,12 +33,9 @@ export const NotificationSettings = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          notification_settings: settings
-        })
-        .eq('id', user.id);
+      const { error } = await updateProfile({
+        notification_settings: settings
+      });
       
       if (error) throw error;
       
