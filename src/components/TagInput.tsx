@@ -8,34 +8,48 @@ export interface TagInputProps {
   setTags: (tags: string[]) => void;
   placeholder?: string;
   maxTags?: number;
+  // Add these aliases to support both property naming conventions
+  value?: string[];
+  onChange?: (tags: string[]) => void;
 }
 
-export const TagInput = ({ tags, setTags, placeholder = 'Add tag...', maxTags = 10 }: TagInputProps) => {
+export const TagInput = ({ 
+  tags, 
+  setTags, 
+  placeholder = 'Add tag...', 
+  maxTags = 10,
+  value, 
+  onChange 
+}: TagInputProps) => {
   const [inputValue, setInputValue] = useState('');
+  
+  // Use the provided values or fallback to the original props
+  const actualTags = value || tags;
+  const actualSetTags = onChange || setTags;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && inputValue.trim() !== '') {
       e.preventDefault();
       
-      if (tags.length >= maxTags) {
+      if (actualTags.length >= maxTags) {
         return;
       }
       
-      if (!tags.includes(inputValue.trim())) {
-        setTags([...tags, inputValue.trim()]);
+      if (!actualTags.includes(inputValue.trim())) {
+        actualSetTags([...actualTags, inputValue.trim()]);
         setInputValue('');
       }
     }
   };
 
   const removeTag = (index: number) => {
-    setTags(tags.filter((_, i) => i !== index));
+    actualSetTags(actualTags.filter((_, i) => i !== index));
   };
 
   return (
     <div className="flex flex-col space-y-2">
       <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-10">
-        {tags.map((tag, index) => (
+        {actualTags.map((tag, index) => (
           <div
             key={index}
             className="flex items-center gap-1 px-2 py-1 text-sm bg-primary/10 text-primary rounded-md"
@@ -55,14 +69,14 @@ export const TagInput = ({ tags, setTags, placeholder = 'Add tag...', maxTags = 
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={tags.length >= maxTags ? `Maximum ${maxTags} tags` : placeholder}
-          disabled={tags.length >= maxTags}
+          placeholder={actualTags.length >= maxTags ? `Maximum ${maxTags} tags` : placeholder}
+          disabled={actualTags.length >= maxTags}
           className="flex-1 min-w-[120px] border-0 focus-visible:ring-0 p-0 h-8"
         />
       </div>
       {maxTags && (
         <p className="text-xs text-muted-foreground">
-          {tags.length} of {maxTags} tags used
+          {actualTags.length} of {maxTags} tags used
         </p>
       )}
     </div>

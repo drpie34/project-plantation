@@ -302,8 +302,8 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
             </Label>
             <div className="col-span-3">
               <TagInput
-                value={formData.tags}
-                onChange={handleTagsChange}
+                tags={formData.tags}
+                setTags={handleTagsChange}
                 placeholder="Add tags..."
                 maxTags={5}
               />
