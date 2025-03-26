@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { ProfileDetails } from '@/components/profile/ProfileDetails';
+import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -88,23 +91,28 @@ const Profile = () => {
     <div className="space-y-6">
       <h2 className="text-3xl font-bold">Your Profile</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Account Information</CardTitle>
-            <CardDescription>
-              Manage your account details and password
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Account Details</TabsTrigger>
-                <TabsTrigger value="password">Change Password</TabsTrigger>
-                <TabsTrigger value="subscription">Subscription</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="details" className="mt-6 space-y-6">
+      <div className="grid grid-cols-1 gap-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="details">Profile Details</TabsTrigger>
+            <TabsTrigger value="account">Account Settings</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details" className="mt-6">
+            <ProfileDetails />
+          </TabsContent>
+          
+          <TabsContent value="account" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Information</CardTitle>
+                <CardDescription>
+                  Manage your account details and password
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -135,84 +143,80 @@ const Profile = () => {
                     className="bg-gray-50"
                   />
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="password" className="mt-6">
-                <form onSubmit={handlePasswordChange} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                    {passwordError && (
-                      <p className="text-sm text-red-600">{passwordError}</p>
-                    )}
-                  </div>
-                  
-                  <Button type="submit" disabled={isUpdatingPassword}>
-                    {isUpdatingPassword ? 'Updating...' : 'Update Password'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="subscription" className="mt-6">
+                
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-medium mb-4">Change Password</h3>
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      {passwordError && (
+                        <p className="text-sm text-red-600">{passwordError}</p>
+                      )}
+                    </div>
+                    
+                    <Button type="submit" disabled={isUpdatingPassword}>
+                      {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                    </Button>
+                  </form>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="subscription" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2">
                 <SubscriptionTierSwitcher 
                   currentTier={profile.subscription_tier as 'free' | 'basic' | 'premium'} 
                   userId={user.id}
                   onTierChange={handleTierChange}
                 />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Subscription Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500">Current Plan</p>
-              <p className="text-xl font-medium capitalize">{profile.subscription_tier}</p>
+              </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Subscription Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Current Plan</p>
+                    <p className="text-xl font-medium capitalize">{profile.subscription_tier}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Credits Remaining</p>
+                    <p className="text-xl font-medium text-green-600">{profile.credits_remaining}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Credits reset on {new Date(profile.credits_reset_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            
-            <div>
-              <p className="text-sm text-gray-500">Credits Remaining</p>
-              <p className="text-xl font-medium text-green-600">{profile.credits_remaining}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Credits reset on {new Date(profile.credits_reset_date).toLocaleDateString()}
-              </p>
-            </div>
-            
-            <div className="pt-4">
-              <Button 
-                className="w-full" 
-                variant="outline"
-                onClick={() => setActiveTab('subscription')}
-              >
-                Change Subscription
-              </Button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Testing mode: Try different tiers without payment
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+          
+          <TabsContent value="notifications" className="mt-6">
+            <NotificationSettings />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

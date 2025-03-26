@@ -15,6 +15,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
+  updateProfile: (updates: Partial<User>) => Promise<{ error: any, data: User | null }>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   loading: true,
   isAuthenticated: false,
+  updateProfile: async () => ({ error: null, data: null }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -86,6 +88,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           subscription_tier: 'free',
           credits_remaining: 100,
           credits_reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          notification_settings: { email: true, push: false },
         })
         .select()
         .single();
@@ -100,6 +103,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error in createProfile:', error);
       return null;
+    }
+  };
+
+  // Update user profile
+  const updateProfile = async (updates: Partial<User>) => {
+    try {
+      if (!user) {
+        return { error: new Error('No user logged in'), data: null };
+      }
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error updating profile:', error);
+        return { error, data: null };
+      }
+      
+      setProfile(data as User);
+      return { error: null, data: data as User };
+    } catch (error) {
+      console.error('Error in updateProfile:', error);
+      return { error, data: null };
     }
   };
 
@@ -258,6 +288,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signOut,
         loading,
         isAuthenticated,
+        updateProfile,
       }}
     >
       {children}
