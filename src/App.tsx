@@ -21,6 +21,7 @@ import DocumentAnalysis from "./pages/DocumentAnalysis";
 import Profile from "./pages/Profile";
 import Credits from "./pages/Credits";
 import IdeasHub from "./pages/IdeasHub";
+import ProjectFormation from "./pages/ProjectFormation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/new" element={<NewProject />} />
+              <Route path="/projects/formation" element={<ProjectFormation />} />
               <Route path="/projects/:projectId" element={<ProjectDetail />} />
               <Route path="/projects/:projectId/generate-ideas" element={<GenerateIdeas />} />
               <Route path="/projects/:projectId/planning" element={<ProjectPlanning />} />

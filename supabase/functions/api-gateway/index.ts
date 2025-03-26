@@ -1,6 +1,14 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
+import { supabase } from './utils/supabase.ts';
+
+// Get environment variables
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+
+// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -15,43 +23,67 @@ serve(async (req) => {
   try {
     const { action, payload } = await req.json();
     
-    // Example of accessing environment variables (secrets)
-    const apiKeys = {
-      openai: Deno.env.get('OPENAI_API_KEY'),
-      stripe: Deno.env.get('STRIPE_SECRET_KEY'),
-      anthropic: Deno.env.get('ANTHROPIC_API_KEY'),
-    };
+    switch (action) {
+      case 'getCredits':
+        // Get the user ID from the payload
+        const userId = payload.userId;
 
-    // Just return what keys are configured (don't expose actual keys)
-    const configuredKeys = Object.entries(apiKeys).reduce((acc, [service, key]) => {
-      acc[service] = key ? 'configured' : 'not configured';
-      return acc;
-    }, {});
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'Missing user ID' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          );
+        }
 
-    console.log(`API Gateway called with action: ${action}`);
-    
-    // In a real implementation, you would use the apiKeys to make requests
-    // to the corresponding services based on the action and payload
-    
-    return new Response(
-      JSON.stringify({
-        message: 'API Gateway is set up successfully',
-        configuredKeys,
-        receivedAction: action,
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+        // Fetch the user's credits from the database
+        const { data: creditsData, error: creditsError } = await supabase
+          .from('users')
+          .select('credits_remaining')
+          .eq('id', userId)
+          .single();
+
+        if (creditsError) {
+          console.error('Error fetching credits:', creditsError);
+          throw new Error(creditsError.message);
+        }
+
+        // Return the credits
+        return new Response(
+          JSON.stringify({ credits: creditsData.credits_remaining }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
+      // Add a new case for project formation
+      case 'generateProjectSuggestion':
+        // Call the project-formation function
+        const projectSuggestionResponse = await supabase.functions.invoke('project-formation', {
+          body: {
+            idea: payload.idea,
+            research: payload.research,
+            userTier: payload.userTier
+          }
+        });
+        
+        if (projectSuggestionResponse.error) {
+          throw new Error(projectSuggestionResponse.error.message || 'Error generating project suggestion');
+        }
+        
+        return new Response(
+          JSON.stringify(projectSuggestionResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
   } catch (error) {
-    console.error('Error in API Gateway:', error);
+    console.error('API Gateway error:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
