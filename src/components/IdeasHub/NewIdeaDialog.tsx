@@ -65,9 +65,15 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       
       if (error) throw error;
       
-      setProjects(data || []);
-      if (data && data.length > 0) {
-        setSelectedProject(data[0].id);
+      // Type assertion to ensure the data conforms to Project[]
+      const typedProjects = data?.map(project => ({
+        ...project,
+        stage: project.stage as "ideation" | "planning" | "development" | "launched"
+      })) || [];
+      
+      setProjects(typedProjects);
+      if (typedProjects.length > 0) {
+        setSelectedProject(typedProjects[0].id);
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -121,7 +127,7 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
           problem_solved: formData.problem_solved || null,
           project_id: selectedProject,
           tags: formData.tags,
-          status: 'draft',
+          status: 'draft' as "draft" | "developing" | "ready" | "archived",
           inspiration_sources: {},
           collaboration_settings: { visibility: 'private' },
           version: 1,
@@ -132,10 +138,21 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       
       if (ideaError) throw ideaError;
       
+      // Ensure the returned idea conforms to the Idea type
+      const typedIdea: Idea = {
+        ...ideaData,
+        status: ideaData.status as "draft" | "developing" | "ready" | "archived",
+        tags: ideaData.tags || [],
+        inspiration_sources: ideaData.inspiration_sources || {},
+        collaboration_settings: ideaData.collaboration_settings || { visibility: 'private' },
+        version: ideaData.version || 1,
+        version_history: ideaData.version_history || []
+      };
+      
       // Add category links if categories are selected
       if (selectedCategories.length > 0) {
         const categoryLinks = selectedCategories.map(categoryId => ({
-          idea_id: ideaData.id,
+          idea_id: typedIdea.id,
           category_id: categoryId
         }));
         
@@ -155,7 +172,7 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       });
       
       // Call the onCreate callback
-      onCreate(ideaData);
+      onCreate(typedIdea);
       
       // Reset form
       setFormData({
@@ -166,6 +183,7 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
         tags: []
       });
       setSelectedCategories([]);
+      onClose();
       
     } catch (error) {
       console.error('Error creating idea:', error);
