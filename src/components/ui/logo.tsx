@@ -6,16 +6,17 @@ import { cn } from '@/lib/utils';
 interface LogoProps {
   className?: string;
   onClick?: () => void;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function Logo({ className, onClick, size = 'md' }: LogoProps) {
   const navigate = useNavigate();
   
   const sizeClasses = {
-    sm: 'h-6',
-    md: 'h-8',
-    lg: 'h-12'
+    sm: 'h-8',
+    md: 'h-10',
+    lg: 'h-14',
+    xl: 'h-20'
   };
   
   const handleClick = () => {

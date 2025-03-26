@@ -27,10 +27,10 @@ const DashboardLayout = () => {
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <div className="flex items-center">
             <Logo 
-              size="md" 
+              size="lg" 
               onClick={() => navigate('/dashboard')}
             />
           </div>

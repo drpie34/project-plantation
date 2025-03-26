@@ -17,9 +17,9 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <div>
-            <Logo size="lg" />
+            <Logo size="xl" />
           </div>
           <div className="flex items-center space-x-4">
             <Button 
@@ -80,7 +80,7 @@ const Index = () => {
       <footer className="bg-gray-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <Logo size="md" className="mx-auto mb-4" />
+            <Logo size="lg" className="mx-auto mb-4" />
             <p className="mt-2 text-gray-300">
               Powered by GPT-4o-mini
             </p>
