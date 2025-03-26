@@ -80,4 +80,3 @@ enable_confirmations = false
 [functions]
 # Port to serve functions on
 port = 9999
-]
