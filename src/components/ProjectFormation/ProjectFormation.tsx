@@ -66,10 +66,18 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
         
         if (ideaError) throw ideaError;
         
-        // Cast the status to the correct type to ensure it matches the Idea type
-        const typedIdeaData = {
+        // Convert JSON fields to proper types to match the Idea interface
+        const typedIdeaData: Idea = {
           ...ideaData,
-          status: ideaData.status as "draft" | "developing" | "ready" | "archived"
+          status: ideaData.status as "draft" | "developing" | "ready" | "archived",
+          // Ensure JSON fields are properly cast to expected types
+          inspiration_sources: ideaData.inspiration_sources as Record<string, any>,
+          collaboration_settings: ideaData.collaboration_settings as {
+            visibility: 'private' | 'team' | 'public'
+          },
+          ai_generated_data: ideaData.ai_generated_data,
+          tags: ideaData.tags || [],
+          version_history: ideaData.version_history as Record<string, any>[]
         };
         
         setIdea(typedIdeaData);
