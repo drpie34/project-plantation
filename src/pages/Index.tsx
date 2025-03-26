@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 
 const Index = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -18,7 +19,7 @@ const Index = () => {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">App Whisperer</h1>
+            <Logo size="lg" />
           </div>
           <div className="flex items-center space-x-4">
             <Button 
@@ -79,7 +80,7 @@ const Index = () => {
       <footer className="bg-gray-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-xl font-bold">App Whisperer</h3>
+            <Logo size="md" className="mx-auto mb-4" />
             <p className="mt-2 text-gray-300">
               Powered by GPT-4o-mini
             </p>
