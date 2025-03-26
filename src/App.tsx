@@ -15,6 +15,9 @@ import Projects from "./pages/Projects";
 import NewProject from "./pages/NewProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import GenerateIdeas from "./pages/GenerateIdeas";
+import ProjectPlanning from "./pages/ProjectPlanning";
+import MarketResearch from "./pages/MarketResearch";
+import DocumentAnalysis from "./pages/DocumentAnalysis";
 import Profile from "./pages/Profile";
 import Credits from "./pages/Credits";
 import NotFound from "./pages/NotFound";
@@ -41,6 +44,9 @@ const App = () => (
               <Route path="/projects/new" element={<NewProject />} />
               <Route path="/projects/:projectId" element={<ProjectDetail />} />
               <Route path="/projects/:projectId/generate-ideas" element={<GenerateIdeas />} />
+              <Route path="/projects/:projectId/planning" element={<ProjectPlanning />} />
+              <Route path="/projects/:projectId/market-research" element={<MarketResearch />} />
+              <Route path="/projects/:projectId/document-analysis" element={<DocumentAnalysis />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/credits" element={<Credits />} />
             </Route>
