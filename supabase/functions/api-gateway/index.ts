@@ -19,6 +19,7 @@ serve(async (req) => {
     const apiKeys = {
       openai: Deno.env.get('OPENAI_API_KEY'),
       stripe: Deno.env.get('STRIPE_SECRET_KEY'),
+      anthropic: Deno.env.get('ANTHROPIC_API_KEY'),
     };
 
     // Just return what keys are configured (don't expose actual keys)
