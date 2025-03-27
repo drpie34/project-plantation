@@ -172,6 +172,47 @@ export type Database = {
           },
         ]
       }
+      marketing_copies: {
+        Row: {
+          content: string
+          content_type: string
+          created_at: string
+          id: string
+          model_used: string | null
+          project_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          content_type: string
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          project_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          project_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_copies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string

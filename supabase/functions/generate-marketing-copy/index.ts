@@ -24,81 +24,61 @@ serve(async (req) => {
       projectId, 
       productName, 
       description, 
-      targetAudience, 
-      keyFeatures, 
-      tonality, 
+      targetAudience,
+      keyFeatures,
+      tonality,
       contentType,
-      userTier = 'free' // Default to free tier if not provided
+      userTier 
     } = await req.json();
     
-    // Basic validation
-    if (!userId || !productId || !productName || !description) {
+    // Validate required parameters
+    if (!userId || !projectId || !productName || !description || !contentType) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Missing required fields: userId, projectId, productName, description' 
-        }),
+        JSON.stringify({ error: 'Missing required fields' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-
-    // Create the prompt
-    let promptContent = `Create marketing copy for a SaaS product with the following details:\n\n`;
-    promptContent += `Product Name: ${productName}\n`;
-    promptContent += `Description: ${description}\n`;
+    
+    // Check if we have the necessary API keys
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key is not configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    
+    // Prepare prompt based on content type
+    let systemPrompt = "You are an expert marketing copywriter specializing in SaaS products. Write compelling, persuasive copy that highlights the product's value proposition and appeals to the target audience.";
+    
+    let contentPrompt = `Please write ${getContentTypeDescription(contentType)} for a SaaS product with the following details:\n\n`;
+    contentPrompt += `Product Name: ${productName}\n`;
+    contentPrompt += `Description: ${description}\n`;
     
     if (targetAudience) {
-      promptContent += `Target Audience: ${targetAudience}\n`;
+      contentPrompt += `Target Audience: ${targetAudience}\n`;
     }
     
     if (keyFeatures) {
-      promptContent += `Key Features & Benefits:\n${keyFeatures}\n`;
+      contentPrompt += `Key Features and Benefits:\n`;
+      keyFeatures.split('\n').forEach(feature => {
+        if (feature.trim()) {
+          contentPrompt += `- ${feature.trim()}\n`;
+        }
+      });
     }
     
-    // Tonality guidance
-    let tonalityDescription = "";
-    switch (tonality) {
-      case 'professional':
-        tonalityDescription = "Use a professional, business-oriented tone that emphasizes reliability and expertise.";
-        break;
-      case 'friendly':
-        tonalityDescription = "Use a friendly, conversational tone that is approachable and welcoming.";
-        break;
-      case 'technical':
-        tonalityDescription = "Use a technical tone that highlights detailed specifications and advanced features.";
-        break;
-      case 'creative':
-        tonalityDescription = "Use a creative, bold tone that stands out with innovative language and fresh metaphors.";
-        break;
-      case 'minimal':
-        tonalityDescription = "Use a minimalist tone that is concise, direct, and focuses on essential information only.";
-        break;
-      default:
-        tonalityDescription = "Use a professional, business-oriented tone.";
-    }
+    contentPrompt += `\nTone: ${getTonalityDescription(tonality)}\n\n`;
     
-    promptContent += `\nTone of Voice: ${tonalityDescription}\n\n`;
+    // Add specific instructions based on content type
+    contentPrompt += getContentTypeInstructions(contentType);
     
-    // Content type specifications
-    switch (contentType) {
-      case 'landing':
-        promptContent += "Generate compelling landing page copy including: headline, subheadline, value proposition, call-to-action, and key benefit sections.";
-        break;
-      case 'email':
-        promptContent += "Generate an email campaign sequence with subject lines and body content for: introduction email, feature highlight, testimonial/case study, and call-to-action email.";
-        break;
-      case 'social':
-        promptContent += "Generate a set of 5 social media posts that promote different aspects of the product. Each post should be concise, engaging, and include relevant hashtags.";
-        break;
-      case 'ads':
-        promptContent += "Generate a set of 5 ad copy variations with attention-grabbing headlines and compelling descriptions suitable for digital advertising platforms.";
-        break;
-      default:
-        promptContent += "Generate compelling marketing copy that highlights the value proposition and key benefits.";
-    }
+    // Choose the model based on user's subscription tier
+    const model = userTier === 'premium' ? 'gpt-4o' : 
+                 userTier === 'basic' ? 'gpt-4o' : 'gpt-4o-mini';
     
-    // Choose the model based on user tier
-    const model = userTier === 'premium' ? 'gpt-4o' : 'gpt-4o-mini';
-    const maxTokens = userTier === 'premium' ? 2000 : 1000;
+    // Maximum tokens based on tier
+    const maxTokens = userTier === 'premium' ? 2500 : 
+                     userTier === 'basic' ? 1800 : 1200;
     
     // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -112,11 +92,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are an expert marketing copywriter specializing in SaaS and technology products. Create compelling, conversion-oriented copy that speaks directly to the target audience and highlights the product's value proposition."
+            content: systemPrompt
           },
           {
             role: "user",
-            content: promptContent
+            content: contentPrompt
           }
         ],
         temperature: 0.7,
@@ -140,8 +120,7 @@ serve(async (req) => {
           usage: {
             inputTokens: data.usage.prompt_tokens,
             outputTokens: data.usage.completion_tokens,
-            model: model,
-            api: "openai"
+            model: model
           }
         }
       }),
@@ -157,3 +136,51 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper functions for prompt generation
+function getContentTypeDescription(contentType: string): string {
+  switch(contentType) {
+    case 'landing':
+      return 'landing page copy';
+    case 'email':
+      return 'email campaign copy';
+    case 'social':
+      return 'social media posts';
+    case 'ads':
+      return 'advertising copy';
+    default:
+      return 'marketing copy';
+  }
+}
+
+function getTonalityDescription(tonality: string): string {
+  switch(tonality) {
+    case 'professional':
+      return 'Professional and authoritative';
+    case 'friendly':
+      return 'Friendly and approachable';
+    case 'technical':
+      return 'Technical and detailed';
+    case 'creative':
+      return 'Creative and bold';
+    case 'minimal':
+      return 'Minimalist and straightforward';
+    default:
+      return 'Professional';
+  }
+}
+
+function getContentTypeInstructions(contentType: string): string {
+  switch(contentType) {
+    case 'landing':
+      return 'Create landing page copy with a compelling headline, subheadline, key benefits section, feature descriptions, and a strong call to action. Format the content with clear section headings.';
+    case 'email':
+      return 'Create an email campaign with a subject line, greeting, body content highlighting key benefits, and a clear call to action. The email should be concise but persuasive.';
+    case 'social':
+      return 'Create a set of 5 social media posts (200 characters or less each) that highlight different aspects of the product. Each post should have a clear message and call to action.';
+    case 'ads':
+      return 'Create a set of 3-5 short ad copies (50-100 characters each) for digital advertising. Include headline variations and compelling value propositions.';
+    default:
+      return 'Create comprehensive marketing copy that highlights the product\'s value proposition, key features, and benefits.';
+  }
+}
