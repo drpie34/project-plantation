@@ -35,12 +35,17 @@ export default function VisualPlanning() {
           .eq('id', projectId)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
         
         if (!data) {
+          console.error('No project data returned');
           throw new Error('Project not found');
         }
         
+        console.log("Project data retrieved:", data); // Debug log
         setProject(data);
       } catch (error: any) {
         console.error('Error fetching project:', error);
@@ -62,7 +67,7 @@ export default function VisualPlanning() {
   }
 
   if (!project) {
-    return <div className="container py-8">Project not found</div>;
+    return <div className="container py-8">Project not found. Please check the project ID: {projectId}</div>;
   }
 
   return (

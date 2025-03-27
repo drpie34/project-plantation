@@ -7,7 +7,7 @@ interface CustomNodeData {
   label: string;
 }
 
-// The CustomNode component receives props from ReactFlow
+// Use the NodeProps generic with our custom data type
 function CustomNodeComponent({ data, isConnectable, selected }: NodeProps<CustomNodeData>) {
   return (
     <div
@@ -32,4 +32,5 @@ function CustomNodeComponent({ data, isConnectable, selected }: NodeProps<Custom
   );
 }
 
+// Memoize the component to prevent unnecessary re-renders
 export default memo(CustomNodeComponent);

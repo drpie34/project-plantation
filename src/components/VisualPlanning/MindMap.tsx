@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   ReactFlow,
@@ -32,7 +31,7 @@ import {
 
 import CustomNode from './CustomNode';
 
-// Node types for the mind map
+// Define node types with proper typing
 const nodeTypes: NodeTypes = {
   custom: CustomNode
 };
