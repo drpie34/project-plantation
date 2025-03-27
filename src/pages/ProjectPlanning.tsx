@@ -102,7 +102,7 @@ export default function ProjectPlanning() {
   // Set the requirements when defaultRequirements changes
   useEffect(() => {
     if (defaultRequirements) {
-      console.log('ProjectPlanning: Setting default requirements:', defaultRequirements);
+      console.log('ProjectPlanning: Setting default requirements');
       setRequirements(defaultRequirements);
     }
   }, [defaultRequirements]);
@@ -119,15 +119,23 @@ export default function ProjectPlanning() {
     }
     
     try {
-      await generatePlan(requirements, planningType as 'timeline' | 'resources' | 'technical' | 'general');
+      console.log('Generating plan with planning type:', planningType);
+      const response = await generatePlan(
+        requirements, 
+        planningType as 'timeline' | 'resources' | 'technical' | 'general'
+      );
       
-      toast({
-        title: 'Plan generated',
-        description: `Generated with ${planResult?.model || 'AI'}. ${creditsRemaining} credits remaining.`,
-      });
+      if (response && response.plan) {
+        toast({
+          title: 'Plan generated',
+          description: `Generated with ${response.plan.model || 'AI'}. ${response.credits_remaining} credits remaining.`,
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
       
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error('Error generating plan:', error);
       setError(error.message);
       toast({
         title: 'Error generating plan',

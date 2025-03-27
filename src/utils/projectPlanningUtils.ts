@@ -19,24 +19,34 @@ export type ProjectPlanningResponse = {
 
 export async function generateProjectPlan(params: ProjectPlanningParams): Promise<ProjectPlanningResponse> {
   try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-planning`, {
+    // Update to use the API Gateway instead of direct function call for more reliability
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-gateway`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        action: 'generateProjectPlan',
+        payload: params
+      }),
     });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Project planning API error:', errorText);
+      throw new Error(errorText || 'Error generating project plan');
+    }
     
     const data = await response.json();
     
-    if (!response.ok) {
-      throw new Error(data.error || 'Error generating project plan');
+    if (!data) {
+      throw new Error('Empty response from project planning API');
     }
     
     return data;
   } catch (error: any) {
     console.error('Error generating project plan:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to generate project plan');
   }
 }

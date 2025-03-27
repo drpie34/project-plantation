@@ -93,6 +93,23 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       
+      // Add a case for project planning
+      case 'generateProjectPlan':
+        // Call the project-planning function
+        const projectPlanningResponse = await supabase.functions.invoke('project-planning', {
+          body: payload
+        });
+        
+        if (projectPlanningResponse.error) {
+          console.error('Error calling project-planning function:', projectPlanningResponse.error);
+          throw new Error(projectPlanningResponse.error.message || 'Error generating project plan');
+        }
+        
+        return new Response(
+          JSON.stringify(projectPlanningResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
       // Add a new case for project formation
       case 'generateProjectSuggestion':
         // Call the project-formation function
