@@ -33,7 +33,7 @@ export function Logo({ className, onClick, size = 'md' }: LogoProps) {
       onClick={handleClick}
     >
       <img 
-        src="/lovable-uploads/62347021-519c-4636-90eb-8cb27c0c0bd3.png" 
+        src="/lovable-uploads/a2599403-e704-43e1-a8cd-218554d8cc4f.png" 
         alt="App Whisperer" 
         className={cn(sizeClasses[size], "object-contain")}
       />
