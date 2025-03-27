@@ -43,6 +43,7 @@ serve(async (req) => {
         );
         
       case 'check-ai-router':
+        console.log('Calling AI router with payload:', JSON.stringify(payload));
         // Call the AI router function and return the result
         const aiRouterResponse = await supabase.functions.invoke('ai-router', {
           body: {
@@ -54,6 +55,7 @@ serve(async (req) => {
         });
         
         if (aiRouterResponse.error) {
+          console.error('Error calling AI Router:', aiRouterResponse.error);
           throw new Error(aiRouterResponse.error.message || 'Error connecting to AI Router');
         }
         
