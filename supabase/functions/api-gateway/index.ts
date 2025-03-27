@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -70,6 +71,51 @@ serve(async (req) => {
         
         return new Response(
           JSON.stringify(projectSuggestionResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
+      // New cases for marketing copy generation
+      case 'generateMarketingCopy':
+        // Get user tier
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('subscription_tier')
+          .eq('id', payload.userId)
+          .single();
+          
+        if (userError) {
+          throw new Error(`Error fetching user data: ${userError.message}`);
+        }
+        
+        // Call the generate-marketing-copy function
+        const marketingCopyResponse = await supabase.functions.invoke('generate-marketing-copy', {
+          body: {
+            ...payload,
+            userTier: userData.subscription_tier
+          }
+        });
+        
+        if (marketingCopyResponse.error) {
+          throw new Error(marketingCopyResponse.error.message || 'Error generating marketing copy');
+        }
+        
+        return new Response(
+          JSON.stringify(marketingCopyResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
+      case 'saveMarketingCopy':
+        // Call the save-marketing-copy function
+        const saveCopyResponse = await supabase.functions.invoke('save-marketing-copy', {
+          body: payload
+        });
+        
+        if (saveCopyResponse.error) {
+          throw new Error(saveCopyResponse.error.message || 'Error saving marketing copy');
+        }
+        
+        return new Response(
+          JSON.stringify(saveCopyResponse.data),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       
