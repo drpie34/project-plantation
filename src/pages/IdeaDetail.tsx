@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +41,7 @@ export default function IdeaDetail() {
         .single();
 
       if (error) throw error;
+      console.log('Loaded idea details in IdeaDetail:', data);
       setIdea(data as Idea);
     } catch (error: any) {
       console.error('Error fetching idea:', error);
@@ -56,7 +56,6 @@ export default function IdeaDetail() {
   }
 
   const handleEdit = () => {
-    // Edit functionality would go here
     toast({
       title: 'Info',
       description: 'Edit functionality not yet implemented',
@@ -65,7 +64,6 @@ export default function IdeaDetail() {
   };
 
   const handleDelete = async () => {
-    // Delete functionality would go here
     toast({
       title: 'Info',
       description: 'Delete functionality not yet implemented',

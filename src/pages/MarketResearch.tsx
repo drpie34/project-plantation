@@ -38,13 +38,15 @@ export default function MarketResearch() {
   // Load idea details when ideaId is provided
   useEffect(() => {
     if (ideaId) {
+      console.log('MarketResearch: Loading idea details for ideaId:', ideaId);
       loadIdeaDetails(ideaId);
     }
-  }, [ideaId]);
+  }, [ideaId, loadIdeaDetails]);
 
   // Set the query when defaultQuery changes
   useEffect(() => {
     if (defaultQuery) {
+      console.log('MarketResearch: Setting default query:', defaultQuery);
       setQuery(defaultQuery);
     }
   }, [defaultQuery]);

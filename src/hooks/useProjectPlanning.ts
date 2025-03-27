@@ -21,6 +21,7 @@ export const useProjectPlanning = (projectId: string) => {
 
   // Function to load idea details when an ideaId is provided
   const loadIdeaDetails = async (ideaId: string) => {
+    console.log('Loading idea details for project planning:', ideaId);
     try {
       const { data, error } = await supabase
         .from('ideas')
@@ -29,6 +30,8 @@ export const useProjectPlanning = (projectId: string) => {
         .single();
 
       if (error) throw error;
+      
+      console.log('Loaded idea details:', data);
       
       if (data) {
         // Create a comprehensive planning requirements based on idea details

@@ -94,13 +94,15 @@ export default function ProjectPlanning() {
   // Load idea details when ideaId is provided
   useEffect(() => {
     if (ideaId) {
+      console.log('ProjectPlanning: Loading idea details for ideaId:', ideaId);
       loadIdeaDetails(ideaId);
     }
-  }, [ideaId]);
+  }, [ideaId, loadIdeaDetails]);
 
   // Set the requirements when defaultRequirements changes
   useEffect(() => {
     if (defaultRequirements) {
+      console.log('ProjectPlanning: Setting default requirements:', defaultRequirements);
       setRequirements(defaultRequirements);
     }
   }, [defaultRequirements]);

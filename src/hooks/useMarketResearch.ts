@@ -19,6 +19,7 @@ export const useMarketResearch = (projectId: string) => {
 
   // Function to load idea details when an ideaId is provided
   const loadIdeaDetails = async (ideaId: string) => {
+    console.log('Loading idea details for market research:', ideaId);
     try {
       const { data, error } = await supabase
         .from('ideas')
@@ -27,6 +28,8 @@ export const useMarketResearch = (projectId: string) => {
         .single();
 
       if (error) throw error;
+      
+      console.log('Loaded idea details:', data);
       
       if (data) {
         // Create a comprehensive research query based on idea details
