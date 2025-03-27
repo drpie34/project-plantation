@@ -17,7 +17,7 @@ serve(async (req) => {
   try {
     const reqBody = await req.json();
     console.log('Project planning function called with:', JSON.stringify(reqBody));
-    const { userId, projectId, requirements, planningType } = reqBody;
+    const { userId, projectId, requirements, planningType, modelOverride } = reqBody;
     
     if (!userId || !projectId || !requirements) {
       return new Response(
@@ -96,6 +96,8 @@ serve(async (req) => {
     
     // Call the AI Router edge function
     console.log('Calling AI router for project planning with content:', requirements);
+    console.log('Using model override:', modelOverride || 'none specified');
+    
     const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: 'POST',
       headers: {
@@ -106,7 +108,11 @@ serve(async (req) => {
         task: 'projectPlanning',
         content: requirements,
         userTier: user.subscription_tier,
-        options: { systemPrompt, maxTokens: 4000 }
+        options: { 
+          systemPrompt, 
+          maxTokens: 4000,
+          model: modelOverride || undefined
+        }
       })
     });
     

@@ -6,6 +6,7 @@ export type MarketResearchParams = {
   projectId: string;
   query: string;
   source?: string;
+  modelOverride?: string;
 };
 
 export type MarketResearchResponse = {
@@ -27,9 +28,15 @@ export async function conductMarketResearch(params: MarketResearchParams): Promi
   try {
     console.log('Conducting market research with params:', params);
     
+    // Add a model override if not provided
+    const modifiedParams = {
+      ...params,
+      modelOverride: params.modelOverride || 'gpt-4o-mini'
+    };
+    
     // Direct call to the market-research edge function
     const { data, error } = await supabase.functions.invoke('market-research', {
-      body: params
+      body: modifiedParams
     });
     
     if (error) {

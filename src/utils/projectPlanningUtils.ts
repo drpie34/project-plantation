@@ -23,9 +23,15 @@ export async function generateProjectPlan(params: ProjectPlanningParams): Promis
   try {
     console.log('Generating project plan with params:', params);
     
+    // Add a model override to use gpt-4o-mini instead of the Claude model
+    const modifiedParams = {
+      ...params,
+      modelOverride: 'gpt-4o-mini'
+    };
+    
     // Direct call to the project-planning edge function
     const { data, error } = await supabase.functions.invoke('project-planning', {
-      body: params
+      body: modifiedParams
     });
     
     if (error) {
