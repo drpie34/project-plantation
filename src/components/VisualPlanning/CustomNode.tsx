@@ -2,8 +2,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
-// Instead of extending NodeProps directly, we'll create a custom interface
-// that uses NodeProps properties along with our custom properties
+// Define the shape of our node data
 interface CustomNodeData {
   label: string;
 }

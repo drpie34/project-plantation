@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   ReactFlow,
@@ -13,7 +12,8 @@ import {
   Edge,
   Node,
   NodeChange,
-  EdgeChange
+  EdgeChange,
+  NodeTypes
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -32,7 +32,7 @@ import {
 import CustomNode from './CustomNode';
 
 // Node types for the mind map
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
   custom: CustomNode
 };
 
