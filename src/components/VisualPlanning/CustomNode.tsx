@@ -7,7 +7,7 @@ interface CustomNodeData {
   label: string;
 }
 
-// Using the NodeProps generic type to specify our data shape
+// The CustomNode component receives props from ReactFlow via NodeProps generic
 const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   return (
     <div
