@@ -74,7 +74,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       
-      // New cases for marketing copy generation
+      // Marketing copy generation
       case 'generateMarketingCopy':
         // Get user tier
         const { data: userData, error: userError } = await supabase
@@ -116,6 +116,22 @@ serve(async (req) => {
         
         return new Response(
           JSON.stringify(saveCopyResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
+      // Activity tracking
+      case 'trackActivity':
+        // Call the track-activity function
+        const activityResponse = await supabase.functions.invoke('track-activity', {
+          body: payload
+        });
+        
+        if (activityResponse.error) {
+          throw new Error(activityResponse.error.message || 'Error tracking activity');
+        }
+        
+        return new Response(
+          JSON.stringify(activityResponse.data),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       
