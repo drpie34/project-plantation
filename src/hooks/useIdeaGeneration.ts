@@ -6,11 +6,12 @@ import { useToast } from '@/hooks/use-toast';
 import { callApiGateway } from '@/utils/apiGateway';
 import { parseIdeasFromAIContent } from '@/utils/ideaParser';
 import { User } from '@/types/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 export interface UseIdeaGenerationProps {
   projectId: string;
-  user: User | null;
-  profile: any | null;
+  user: SupabaseUser | null;
+  profile: User | null;
 }
 
 export const useIdeaGeneration = ({ projectId, user, profile }: UseIdeaGenerationProps) => {
