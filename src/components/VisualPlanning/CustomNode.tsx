@@ -2,13 +2,14 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
-interface CustomNodeProps extends NodeProps {
-  data: { label: string };
-  isConnectable?: boolean;
-  selected?: boolean;
+// Instead of extending NodeProps directly, we'll create a custom interface
+// that uses NodeProps properties along with our custom properties
+interface CustomNodeData {
+  label: string;
 }
 
-export default memo(({ data, isConnectable, selected }: CustomNodeProps) => {
+// Using the NodeProps generic type to specify our data shape
+const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   return (
     <div
       className={`px-4 py-2 shadow-md rounded-md bg-white border ${
@@ -31,3 +32,5 @@ export default memo(({ data, isConnectable, selected }: CustomNodeProps) => {
     </div>
   );
 });
+
+export default CustomNode;
