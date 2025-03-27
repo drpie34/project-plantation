@@ -8,18 +8,23 @@ import VisualPlanningTabs from '@/components/VisualPlanning/VisualPlanningTabs';
 import VisualPlans from '@/components/VisualPlanning/VisualPlans';
 
 export default function VisualPlanning() {
-  const { projectId } = useParams<{ projectId: string }>();
+  // Fix the parameter extraction
+  const params = useParams();
+  const projectId = params.projectId;
+  
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchProject = async () => {
-      if (!projectId) {
+      // Check if projectId is valid and not the route parameter placeholder
+      if (!projectId || projectId === ':projectId') {
         setLoading(false);
+        console.error('Invalid project ID:', projectId);
         toast({
           title: 'Error',
-          description: 'Project ID is missing',
+          description: 'Invalid or missing project ID',
           variant: 'destructive'
         });
         return;
@@ -67,7 +72,11 @@ export default function VisualPlanning() {
   }
 
   if (!project) {
-    return <div className="container py-8">Project not found. Please check the project ID: {projectId}</div>;
+    return (
+      <div className="container py-8">
+        Project not found. Please check the project ID: {projectId}
+      </div>
+    );
   }
 
   return (

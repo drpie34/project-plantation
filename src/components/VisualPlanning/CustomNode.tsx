@@ -1,14 +1,16 @@
 
 import { memo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
 
-// Define the shape of the node data property only
+// Define only the shape of the data property
 interface CustomNodeData {
   label: string;
 }
 
-// Use the NodeProps generic with our custom data type
-function CustomNodeComponent({ data, isConnectable, selected }: NodeProps<CustomNodeData>) {
+// Use regular function with explicit typing
+function CustomNode(props: any) {
+  const { data, isConnectable, selected } = props;
+  
   return (
     <div
       className={`px-4 py-2 shadow-md rounded-md bg-white border ${
@@ -32,5 +34,5 @@ function CustomNodeComponent({ data, isConnectable, selected }: NodeProps<Custom
   );
 }
 
-// Memoize the component to prevent unnecessary re-renders
-export default memo(CustomNodeComponent);
+// Export the memoized version
+export default memo(CustomNode);
