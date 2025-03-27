@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeftIcon } from 'lucide-react';
 import { callApiGateway } from '@/utils/apiGateway';
+import { parseIdeasFromAIContent } from '@/utils/ideaParser';
 
 const GenerateIdeas = () => {
   const [project, setProject] = useState<Project | null>(null);
@@ -90,49 +92,7 @@ const GenerateIdeas = () => {
     setIsLoading(true);
 
     try {
-      const prompt = `Generate 3 innovative SaaS ideas for the ${industry} industry.
-      ${interests ? `Focus areas or interests: ${interests}` : ''}
-      
-      For each idea, provide:
-      1. A catchy title
-      2. A brief description (2-3 sentences)
-      3. The target audience
-      4. The main problem it solves
-      5. 3-5 key features
-      6. A potential revenue model
-      
-      Format each idea EXACTLY with these headers:
-      
-      ## Idea 1: [TITLE]
-      Description: [DESCRIPTION]
-      Target Audience: [TARGET]
-      Problem: [PROBLEM]
-      Key Features:
-      - [FEATURE 1]
-      - [FEATURE 2]
-      - [FEATURE 3]
-      Revenue Model: [REVENUE MODEL]
-      
-      ## Idea 2: [TITLE]
-      Description: [DESCRIPTION]
-      Target Audience: [TARGET]
-      Problem: [PROBLEM]
-      Key Features:
-      - [FEATURE 1]
-      - [FEATURE 2]
-      - [FEATURE 3]
-      Revenue Model: [REVENUE MODEL]
-      
-      ## Idea 3: [TITLE]
-      Description: [DESCRIPTION]
-      Target Audience: [TARGET]
-      Problem: [PROBLEM]
-      Key Features:
-      - [FEATURE 1]
-      - [FEATURE 2]
-      - [FEATURE 3]
-      Revenue Model: [REVENUE MODEL]`;
-      
+      const prompt = buildIdeaGenerationPrompt(industry, interests);
       console.log("Sending prompt to AI:", prompt);
       
       const result = await callApiGateway('check-ai-router', {
@@ -151,102 +111,7 @@ const GenerateIdeas = () => {
       
       console.log("AI response:", result.content);
       
-      const parseIdeas = (content: string) => {
-        console.log("Raw AI content to parse:", content);
-        
-        const ideaSections = content.split(/##\s*Idea\s*\d+\s*:/i).filter(Boolean);
-        
-        if (ideaSections.length === 0) {
-          const alternativeSections = content.split(/Idea\s*\d+\s*:/i).filter(Boolean);
-          if (alternativeSections.length > 0) {
-            return alternativeSections.map(parseIdeaSection);
-          }
-          
-          const paragraphs = content.split(/\n\n+/).filter(section => 
-            section.trim().length > 10 && 
-            !section.toLowerCase().includes('here are') && 
-            !section.toLowerCase().includes('below are')
-          );
-          
-          if (paragraphs.length > 0) {
-            return paragraphs.map(parseIdeaSection);
-          }
-        }
-        
-        return ideaSections.map(parseIdeaSection);
-      };
-      
-      const parseIdeaSection = (section: string) => {
-        console.log("Parsing section:", section);
-        
-        const titleMatch = section.match(/^\s*([^\n]+)/) || 
-                          section.match(/\s*([^:\n]+)/) || 
-                          section.match(/\[([^\]]+)\]/);
-        const title = titleMatch ? titleMatch[1].trim() : 'Untitled Idea';
-        
-        const descMatch = section.match(/Description\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i) || 
-                          section.match(/([^\n]+)(?=\n\s*Target|$)/i) ||
-                          section.match(/:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*[A-Z]|$)/i);
-        const description = descMatch ? descMatch[1].trim() : '';
-        
-        const targetMatch = section.match(/Target\s*Audience\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i) ||
-                           section.match(/Target\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i) ||
-                           section.match(/For\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
-        const targetAudience = targetMatch ? targetMatch[1].trim() : '';
-        
-        const problemMatch = section.match(/Problem\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i) ||
-                            section.match(/Problem\s*Solved\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i) ||
-                            section.match(/Pain\s*Point\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
-        const problemSolved = problemMatch ? problemMatch[1].trim() : '';
-        
-        const featuresMatch = section.match(/Key Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i) ||
-                             section.match(/Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i);
-        let features: string[] = [];
-        
-        if (featuresMatch) {
-          const featureText = featuresMatch[1];
-          
-          const bulletedItems = featureText.match(/\n\s*[-*•]\s*([^\n]+)/g);
-          if (bulletedItems && bulletedItems.length > 0) {
-            features = bulletedItems.map(item => item.replace(/\n\s*[-*•]\s*/, '').trim()).filter(Boolean);
-          } else {
-            const numberedItems = featureText.match(/\n\s*\d+\.\s*([^\n]+)/g);
-            if (numberedItems && numberedItems.length > 0) {
-              features = numberedItems.map(item => item.replace(/\n\s*\d+\.\s*/, '').trim()).filter(Boolean);
-            } else {
-              features = featureText.split('\n').map(f => f.trim()).filter(Boolean);
-            }
-          }
-        }
-        
-        if (features.length === 0) {
-          const listItems = section.match(/\n\s*[-*•]\s*([^\n]+)/g);
-          if (listItems && listItems.length > 0) {
-            features = listItems.map(item => item.replace(/\n\s*[-*•]\s*/, '').trim()).filter(Boolean);
-          }
-        }
-        
-        const revenueMatch = section.match(/Revenue\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i) ||
-                            section.match(/Monetization\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i) ||
-                            section.match(/Business\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i);
-        const revenueModel = revenueMatch ? revenueMatch[1].trim() : '';
-        
-        const result = {
-          title: title || 'Untitled Idea',
-          description: description || 'No description provided',
-          target_audience: targetAudience || 'Not specified',
-          problem_solved: problemSolved || 'Not specified',
-          ai_generated_data: {
-            key_features: features.length > 0 ? features : ['Not specified'],
-            revenue_model: revenueModel || 'Not specified'
-          }
-        };
-        
-        console.log("Parsed result:", result);
-        return result;
-      };
-      
-      const parsedIdeas = parseIdeas(result.content);
+      const parsedIdeas = parseIdeasFromAIContent(result.content);
       
       console.log("Parsed ideas:", parsedIdeas);
       
@@ -273,30 +138,13 @@ const GenerateIdeas = () => {
           variant: 'default',
         });
         
-        await supabase
-          .from('api_usage')
-          .insert({
-            user_id: user.id,
-            api_type: result.usage.api,
-            model_used: result.usage.model,
-            tokens_input: result.usage.inputTokens,
-            tokens_output: result.usage.outputTokens,
-            credits_used: result.usage.creditCost || 5,
-            timestamp: new Date().toISOString()
-          });
-        
-        const creditCost = result.usage.creditCost || 5;
-        await supabase
-          .from('users')
-          .update({ 
-            credits_remaining: profile.credits_remaining - creditCost 
-          })
-          .eq('id', user.id);
+        await saveApiUsageAndUpdateCredits(user.id, profile.credits_remaining, result.usage);
         
         navigate(`/projects/${projectId}`);
         return;
       }
       
+      // Save each parsed idea to the database
       for (const idea of parsedIdeas) {
         await supabase
           .from('ideas')
@@ -313,25 +161,7 @@ const GenerateIdeas = () => {
           });
       }
       
-      await supabase
-        .from('api_usage')
-        .insert({
-          user_id: user.id,
-          api_type: result.usage.api,
-          model_used: result.usage.model,
-          tokens_input: result.usage.inputTokens,
-          tokens_output: result.usage.outputTokens,
-          credits_used: result.usage.creditCost || 5,
-          timestamp: new Date().toISOString()
-        });
-      
-      const creditCost = result.usage.creditCost || 5;
-      await supabase
-        .from('users')
-        .update({ 
-          credits_remaining: profile.credits_remaining - creditCost 
-        })
-        .eq('id', user.id);
+      await saveApiUsageAndUpdateCredits(user.id, profile.credits_remaining, result.usage);
       
       toast({
         title: 'Success',
@@ -349,6 +179,75 @@ const GenerateIdeas = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Helper function to build the AI prompt
+  const buildIdeaGenerationPrompt = (industry: string, interests?: string) => {
+    return `Generate 3 innovative SaaS ideas for the ${industry} industry.
+    ${interests ? `Focus areas or interests: ${interests}` : ''}
+    
+    For each idea, provide:
+    1. A catchy title
+    2. A brief description (2-3 sentences)
+    3. The target audience
+    4. The main problem it solves
+    5. 3-5 key features
+    6. A potential revenue model
+    
+    Format each idea EXACTLY with these headers:
+    
+    ## Idea 1: [TITLE]
+    Description: [DESCRIPTION]
+    Target Audience: [TARGET]
+    Problem: [PROBLEM]
+    Key Features:
+    - [FEATURE 1]
+    - [FEATURE 2]
+    - [FEATURE 3]
+    Revenue Model: [REVENUE MODEL]
+    
+    ## Idea 2: [TITLE]
+    Description: [DESCRIPTION]
+    Target Audience: [TARGET]
+    Problem: [PROBLEM]
+    Key Features:
+    - [FEATURE 1]
+    - [FEATURE 2]
+    - [FEATURE 3]
+    Revenue Model: [REVENUE MODEL]
+    
+    ## Idea 3: [TITLE]
+    Description: [DESCRIPTION]
+    Target Audience: [TARGET]
+    Problem: [PROBLEM]
+    Key Features:
+    - [FEATURE 1]
+    - [FEATURE 2]
+    - [FEATURE 3]
+    Revenue Model: [REVENUE MODEL]`;
+  };
+  
+  // Helper function to save API usage and update credits
+  const saveApiUsageAndUpdateCredits = async (userId: string, currentCredits: number, usage: any) => {
+    await supabase
+      .from('api_usage')
+      .insert({
+        user_id: userId,
+        api_type: usage.api,
+        model_used: usage.model,
+        tokens_input: usage.inputTokens,
+        tokens_output: usage.outputTokens,
+        credits_used: usage.creditCost || 5,
+        timestamp: new Date().toISOString()
+      });
+    
+    const creditCost = usage.creditCost || 5;
+    await supabase
+      .from('users')
+      .update({ 
+        credits_remaining: currentCredits - creditCost 
+      })
+      .eq('id', userId);
   };
 
   if (isProjectLoading) {
