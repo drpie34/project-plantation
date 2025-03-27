@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import MindMap from './MindMap';
 import GanttChart from './GanttChart';
 import { Pencil, Trash2, Eye } from 'lucide-react';
+import { Node, Edge } from '@xyflow/react';
 
 interface VisualPlan {
   id: string;
@@ -164,8 +165,8 @@ export default function VisualPlans({ projectId }: VisualPlansProps) {
           <div className="p-4">
             {selectedPlan && selectedPlan.type === 'mindmap' && (
               <MindMap
-                initialNodes={selectedPlan.data.nodes}
-                initialEdges={selectedPlan.data.edges}
+                initialNodes={selectedPlan.data.nodes as Node[]}
+                initialEdges={selectedPlan.data.edges as Edge[]}
                 readOnly
               />
             )}

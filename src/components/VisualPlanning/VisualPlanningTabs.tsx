@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import MindMap from './MindMap';
 import GanttChart from './GanttChart';
 import { Edge, Node } from '@xyflow/react';
+import { Json } from '@/types/supabase';
 
 interface VisualPlanningTabsProps {
   projectId: string;
@@ -36,12 +37,29 @@ export default function VisualPlanningTabs({ projectId }: VisualPlanningTabsProp
 
     setIsSaving(true);
     try {
+      // Convert the complex Node and Edge objects to a simpler structure that can be stored as JSON
+      const serializedData = {
+        nodes: data.nodes.map(node => ({
+          id: node.id,
+          type: node.type,
+          position: node.position,
+          data: node.data
+        })),
+        edges: data.edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        }))
+      };
+
       const { error } = await supabase.from('visual_plans').insert({
         name: planName,
         type: 'mindmap',
         project_id: projectId,
         user_id: user.id,
-        data: data
+        data: serializedData as Json
       });
 
       if (error) throw error;
@@ -84,7 +102,7 @@ export default function VisualPlanningTabs({ projectId }: VisualPlanningTabsProp
         type: 'gantt',
         project_id: projectId,
         user_id: user.id,
-        data: { tasks }
+        data: { tasks } as Json
       });
 
       if (error) throw error;
