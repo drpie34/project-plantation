@@ -21,7 +21,9 @@ export type ProjectPlanningResponse = {
 
 export async function generateProjectPlan(params: ProjectPlanningParams): Promise<ProjectPlanningResponse> {
   try {
-    // Use the Supabase client instead of direct fetch for more reliability
+    console.log('Generating project plan with params:', params);
+    
+    // Direct call to the project-planning edge function
     const { data, error } = await supabase.functions.invoke('project-planning', {
       body: params
     });
@@ -35,6 +37,7 @@ export async function generateProjectPlan(params: ProjectPlanningParams): Promis
       throw new Error('Empty response from project planning API');
     }
     
+    console.log('Project planning response:', data);
     return data as ProjectPlanningResponse;
   } catch (error: any) {
     console.error('Error generating project plan:', error);

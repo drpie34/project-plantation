@@ -1,10 +1,10 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 // Get environment variables
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
 // CORS headers
 const corsHeaders = {
@@ -84,6 +84,12 @@ function determineAPIRoute(task: string, content: string, userTier: string) {
 // GPT-4o-mini implementation
 async function callOpenAIGPT4oMini(content: string, options: any = {}) {
   try {
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+    
+    console.log('Calling OpenAI GPT-4o-mini with content:', content.substring(0, 50) + '...');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -107,11 +113,18 @@ async function callOpenAIGPT4oMini(content: string, options: any = {}) {
       }),
     });
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error status:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+    
     const data = await response.json();
     
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Error calling OpenAI API');
-    }
+    console.log('GPT-4o-mini response summary:', {
+      tokens: data.usage,
+      firstWords: data.choices[0].message.content.substring(0, 50) + '...'
+    });
     
     return {
       success: true,
@@ -133,6 +146,12 @@ async function callOpenAIGPT4oMini(content: string, options: any = {}) {
 // GPT-4o implementation
 async function callOpenAIGPT4o(content: string, options: any = {}) {
   try {
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+    
+    console.log('Calling OpenAI GPT-4o with content:', content.substring(0, 50) + '...');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -156,11 +175,18 @@ async function callOpenAIGPT4o(content: string, options: any = {}) {
       }),
     });
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error status:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+    
     const data = await response.json();
     
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Error calling OpenAI API');
-    }
+    console.log('GPT-4o response summary:', {
+      tokens: data.usage,
+      firstWords: data.choices[0].message.content.substring(0, 50) + '...'
+    });
     
     return {
       success: true,
@@ -181,7 +207,13 @@ async function callOpenAIGPT4o(content: string, options: any = {}) {
 // Claude Standard implementation
 async function callClaudeStandard(content: string, options: any = {}) {
   try {
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('Anthropic API key is not configured');
+    }
+    
     const extendedThinking = options.extendedThinking || false;
+    
+    console.log('Calling Claude with content:', content.substring(0, 50) + '...');
     
     const payload: any = {
       model: options.model || "claude-3-sonnet-20240229",
@@ -199,18 +231,24 @@ async function callClaudeStandard(content: string, options: any = {}) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': ANTHROPIC_API_KEY!,
+        'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error status:', response.status, errorText);
+      throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+    }
+    
     const data = await response.json();
     
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Error calling Anthropic API');
-    }
+    console.log('Claude response summary:', {
+      firstWords: data.content[0].text.substring(0, 50) + '...'
+    });
     
     // Estimate token usage since Claude API doesn't return it directly
     const inputTokenEstimate = Math.ceil((content.length + (options.systemPrompt || "").length) / 4);
@@ -305,7 +343,9 @@ serve(async (req) => {
   }
 
   try {
-    const { task, content, userTier, options } = await req.json();
+    const reqBody = await req.json();
+    console.log('AI Router received request:', JSON.stringify(reqBody));
+    const { task, content, userTier, options } = reqBody;
     
     // Validate required parameters
     if (!task || !content || !userTier) {

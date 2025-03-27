@@ -15,7 +15,9 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, projectId, requirements, planningType } = await req.json();
+    const reqBody = await req.json();
+    console.log('Project planning function called with:', JSON.stringify(reqBody));
+    const { userId, projectId, requirements, planningType } = reqBody;
     
     if (!userId || !projectId || !requirements) {
       return new Response(
@@ -37,6 +39,7 @@ serve(async (req) => {
       .single();
     
     if (userError) {
+      console.error('Error fetching user data:', userError);
       return new Response(
         JSON.stringify({ error: 'Error fetching user data' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -92,6 +95,7 @@ serve(async (req) => {
     }
     
     // Call the AI Router edge function
+    console.log('Calling AI router for project planning with content:', requirements);
     const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: 'POST',
       headers: {
@@ -106,11 +110,15 @@ serve(async (req) => {
       })
     });
     
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Router returned error status:', aiResponse.status, errorText);
+      throw new Error(`AI Router error: ${aiResponse.status} - ${errorText}`);
+    }
+    
     const result = await aiResponse.json();
     
-    if (!aiResponse.ok) {
-      throw new Error(result.error || 'Error calling AI Router');
-    }
+    console.log('AI Router response:', JSON.stringify(result));
     
     const creditCost = result.usage.creditCost;
     
@@ -133,6 +141,7 @@ serve(async (req) => {
       .single();
     
     if (updateError) {
+      console.error('Error updating user credits:', updateError);
       return new Response(
         JSON.stringify({ error: 'Error updating user credits' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -140,20 +149,25 @@ serve(async (req) => {
     }
     
     // Log API usage
-    await supabase
-      .from('api_usage')
-      .insert({
-        user_id: userId,
-        api_type: result.usage.api,
-        model_used: result.usage.model,
-        tokens_input: result.usage.inputTokens,
-        tokens_output: result.usage.outputTokens,
-        tokens_thinking: result.usage.thinkingTokens || 0,
-        credits_used: creditCost,
-        features_used: JSON.stringify({
-          extendedThinking: result.usage.extendedThinking || false
-        })
-      });
+    try {
+      await supabase
+        .from('api_usage')
+        .insert({
+          user_id: userId,
+          api_type: result.usage.api,
+          model_used: result.usage.model,
+          tokens_input: result.usage.inputTokens,
+          tokens_output: result.usage.outputTokens,
+          tokens_thinking: result.usage.thinkingTokens || 0,
+          credits_used: creditCost,
+          features_used: JSON.stringify({
+            extendedThinking: result.usage.extendedThinking || false
+          })
+        });
+    } catch (logError) {
+      console.error('Error logging API usage:', logError);
+      // Continue execution even if logging fails
+    }
     
     // Convert content to HTML for better formatting
     const formattedContent = convertMarkdownToHtml(result.content);

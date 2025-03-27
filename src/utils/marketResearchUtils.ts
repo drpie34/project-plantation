@@ -25,6 +25,9 @@ export type MarketResearchResponse = {
 
 export async function conductMarketResearch(params: MarketResearchParams): Promise<MarketResearchResponse> {
   try {
+    console.log('Conducting market research with params:', params);
+    
+    // Direct call to the market-research edge function
     const { data, error } = await supabase.functions.invoke('market-research', {
       body: params
     });
@@ -38,6 +41,7 @@ export async function conductMarketResearch(params: MarketResearchParams): Promi
       throw new Error('Empty response from market research API');
     }
     
+    console.log('Market research response:', data);
     return data as MarketResearchResponse;
   } catch (error: any) {
     console.error('Error conducting market research:', error);

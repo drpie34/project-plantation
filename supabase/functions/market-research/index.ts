@@ -15,7 +15,9 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, projectId, query, source = 'custom' } = await req.json();
+    const reqBody = await req.json();
+    console.log('Market research function called with:', JSON.stringify(reqBody));
+    const { userId, projectId, query, source = 'custom' } = reqBody;
     
     if (!userId || !projectId || !query) {
       return new Response(
@@ -37,6 +39,7 @@ serve(async (req) => {
       .single();
     
     if (userError) {
+      console.error('Error fetching user data:', userError);
       return new Response(
         JSON.stringify({ error: 'Error fetching user data' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -55,6 +58,7 @@ serve(async (req) => {
     Format your response in clear sections with headings.`;
     
     // Call the AI Router edge function
+    console.log('Calling AI router with content:', query);
     const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
       method: 'POST',
       headers: {
@@ -69,11 +73,15 @@ serve(async (req) => {
       })
     });
     
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Router returned error status:', aiResponse.status, errorText);
+      throw new Error(`AI Router error: ${aiResponse.status} - ${errorText}`);
+    }
+    
     const result = await aiResponse.json();
     
-    if (!aiResponse.ok) {
-      throw new Error(result.error || 'Error calling AI Router');
-    }
+    console.log('AI Router response:', JSON.stringify(result));
     
     const creditCost = result.usage.creditCost;
     
@@ -96,6 +104,7 @@ serve(async (req) => {
       .single();
     
     if (updateError) {
+      console.error('Error updating user credits:', updateError);
       return new Response(
         JSON.stringify({ error: 'Error updating user credits' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -103,56 +112,99 @@ serve(async (req) => {
     }
     
     // Log API usage
-    await supabase
-      .from('api_usage')
-      .insert({
-        user_id: userId,
-        api_type: result.usage.api,
-        model_used: result.usage.model,
-        tokens_input: result.usage.inputTokens,
-        tokens_output: result.usage.outputTokens,
-        tokens_thinking: result.usage.thinkingTokens || 0,
-        credits_used: creditCost,
-        features_used: JSON.stringify({
-          webSearch: result.usage.webSearch || false,
-          extendedThinking: result.usage.extendedThinking || false
-        })
-      });
-    
-    // Store the research data
-    const { data: researchData, error: researchError } = await supabase
-      .from('market_research')
-      .insert({
-        project_id: projectId,
-        source,
-        search_query: query,
-        ai_analysis: result.content,
-        model_used: result.usage.model,
-        raw_data: {
-          usage: result.usage,
-          model: result.usage.model,
-          webSearch: result.usage.webSearch
-        }
-      })
-      .select()
-      .single();
-    
-    if (researchError) {
-      console.error('Error storing research data:', researchError);
-      return new Response(
-        JSON.stringify({ error: 'Error storing research data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+    try {
+      await supabase
+        .from('api_usage')
+        .insert({
+          user_id: userId,
+          api_type: result.usage.api,
+          model_used: result.usage.model,
+          tokens_input: result.usage.inputTokens,
+          tokens_output: result.usage.outputTokens,
+          tokens_thinking: result.usage.thinkingTokens || 0,
+          credits_used: creditCost,
+          features_used: JSON.stringify({
+            webSearch: result.usage.webSearch || false,
+            extendedThinking: result.usage.extendedThinking || false
+          })
+        });
+    } catch (logError) {
+      console.error('Error logging API usage:', logError);
+      // Continue execution even if logging fails
     }
     
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        research: researchData,
-        credits_remaining: updatedUser.credits_remaining
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+    // Store the research data
+    try {
+      const { data: researchData, error: researchError } = await supabase
+        .from('market_research')
+        .insert({
+          project_id: projectId,
+          source,
+          search_query: query,
+          ai_analysis: result.content,
+          model_used: result.usage.model,
+          raw_data: {
+            usage: result.usage,
+            model: result.usage.model,
+            webSearch: result.usage.webSearch
+          }
+        })
+        .select()
+        .single();
+      
+      if (researchError) {
+        console.error('Error storing research data:', researchError);
+        // Return success but with a warning
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            warning: 'Research was generated but could not be stored',
+            research: {
+              id: 'temp-id',
+              ai_analysis: result.content,
+              model_used: result.usage.model,
+              raw_data: {
+                webSearch: result.usage.webSearch || false,
+                model: result.usage.model,
+                usage: result.usage
+              }
+            },
+            credits_remaining: updatedUser.credits_remaining
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          research: researchData,
+          credits_remaining: updatedUser.credits_remaining
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    } catch (storeError) {
+      console.error('Error when trying to store research data:', storeError);
+      // Return success but with a warning
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          warning: 'Research was generated but could not be stored',
+          research: {
+            id: 'temp-id',
+            ai_analysis: result.content,
+            model_used: result.usage.model,
+            raw_data: {
+              webSearch: result.usage.webSearch || false,
+              model: result.usage.model,
+              usage: result.usage
+            }
+          },
+          credits_remaining: updatedUser.credits_remaining
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
     
   } catch (error) {
     console.error('Error conducting market research:', error);

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -24,6 +25,7 @@ serve(async (req) => {
     const { action, payload } = await req.json();
     
     console.log(`API Gateway called with action: ${action}`);
+    console.log('Payload:', JSON.stringify(payload));
     
     switch (action) {
       case 'check-status':
@@ -96,6 +98,7 @@ serve(async (req) => {
       case 'generateProjectPlan':
         // Call the project-planning function and return the result
         try {
+          console.log('Calling project-planning function with payload:', JSON.stringify(payload));
           const projectPlanningResponse = await supabase.functions.invoke('project-planning', {
             body: payload
           });
