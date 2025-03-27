@@ -8,7 +8,7 @@ interface CustomNodeData {
 }
 
 // The CustomNode component receives props from ReactFlow
-const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
+const CustomNode = ({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   return (
     <div
       className={`px-4 py-2 shadow-md rounded-md bg-white border ${
@@ -30,6 +30,6 @@ const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNode
       />
     </div>
   );
-});
+};
 
-export default CustomNode;
+export default memo(CustomNode);
