@@ -103,7 +103,19 @@ const GenerateIdeas = () => {
       5. 3-5 key features
       6. A potential revenue model
       
-      Format the response in a structured way that can be easily parsed.`;
+      Format each idea with clear headers like:
+      
+      ## Idea 1: [TITLE]
+      Description: [DESCRIPTION]
+      Target Audience: [TARGET]
+      Problem: [PROBLEM]
+      Key Features:
+      - [FEATURE 1]
+      - [FEATURE 2]
+      - [FEATURE 3]
+      Revenue Model: [REVENUE MODEL]`;
+      
+      console.log("Sending prompt to AI:", prompt);
       
       // Call the AI router through the API gateway
       const result = await callApiGateway('check-ai-router', {
@@ -111,7 +123,7 @@ const GenerateIdeas = () => {
         content: prompt,
         userTier: profile.subscription_tier || 'free',
         options: {
-          systemPrompt: 'You are an expert in SaaS business models and startup ideas. Generate innovative, practical SaaS ideas based on the industry specified.',
+          systemPrompt: 'You are an expert in SaaS business models and startup ideas. Generate innovative, practical SaaS ideas based on the industry specified. Format your response with clear section headers.',
           temperature: 0.8
         }
       });
@@ -120,35 +132,57 @@ const GenerateIdeas = () => {
         throw new Error('Failed to generate ideas');
       }
       
-      // Parse the AI response to extract ideas
-      // This is a simple parser, can be improved for more complex responses
-      const content = result.content;
-      const ideasSections = content.split(/Idea \d+:/g).filter(Boolean);
+      console.log("AI response:", result.content);
       
-      const parsedIdeas = ideasSections.map(section => {
-        // Extract title
-        const titleMatch = section.match(/Title:?\s*([^\n]+)/i);
+      // Improved parser for AI-generated ideas
+      const parseIdeas = (content: string) => {
+        // Split by idea sections (assuming ## Idea X: format)
+        const ideaSections = content.split(/##\s*Idea\s*\d+\s*:/i).filter(Boolean);
+        
+        if (ideaSections.length === 0) {
+          // Try alternative format (Idea 1:, Idea 2:, etc.)
+          const alternativeSections = content.split(/Idea\s*\d+\s*:/i).filter(Boolean);
+          if (alternativeSections.length > 0) {
+            return alternativeSections.map(parseIdeaSection);
+          }
+        }
+        
+        return ideaSections.map(parseIdeaSection);
+      };
+      
+      const parseIdeaSection = (section: string) => {
+        // Extract title - should be at the beginning of the section
+        const titleMatch = section.match(/^\s*([^\n]+)/);
         const title = titleMatch ? titleMatch[1].trim() : 'Untitled Idea';
         
-        // Extract description
-        const descMatch = section.match(/Description:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i);
+        // Extract description - look for Description: or a paragraph following the title
+        const descMatch = section.match(/Description\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i) || 
+                          section.match(/(?:^|\n)\s*(?!Description|Target|Problem|Key Features|Revenue)([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i);
         const description = descMatch ? descMatch[1].trim() : '';
         
         // Extract target audience
-        const targetMatch = section.match(/Target Audience:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
+        const targetMatch = section.match(/Target\s*Audience\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
         const targetAudience = targetMatch ? targetMatch[1].trim() : '';
         
         // Extract problem solved
-        const problemMatch = section.match(/Problem:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
+        const problemMatch = section.match(/Problem\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
         const problemSolved = problemMatch ? problemMatch[1].trim() : '';
         
-        // Extract features
-        const featuresMatch = section.match(/Key Features:?\s*([\s\S]*?)(?=\n\s*Revenue|$)/i);
-        let featuresText = featuresMatch ? featuresMatch[1].trim() : '';
-        const features = featuresText.split(/\n-|\n\d+\./).map(f => f.trim()).filter(Boolean);
+        // Extract features - look for list items after "Key Features:"
+        const featuresMatch = section.match(/Key Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i);
+        let features: string[] = [];
+        
+        if (featuresMatch) {
+          // Extract list items (with - * or •)
+          features = featuresMatch[1].split(/\n\s*[-*•]/).map(f => f.trim()).filter(Boolean);
+          // If no list markers found, try to split by numbered items or newlines
+          if (features.length <= 1) {
+            features = featuresMatch[1].split(/\n\s*\d+\.|\n+/).map(f => f.trim()).filter(Boolean);
+          }
+        }
         
         // Extract revenue model
-        const revenueMatch = section.match(/Revenue Model:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*(?:Idea \d+:|$))/i);
+        const revenueMatch = section.match(/Revenue\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i);
         const revenueModel = revenueMatch ? revenueMatch[1].trim() : '';
         
         return {
@@ -161,7 +195,15 @@ const GenerateIdeas = () => {
             revenue_model: revenueModel
           }
         };
-      });
+      };
+      
+      const parsedIdeas = parseIdeas(result.content);
+      
+      console.log("Parsed ideas:", parsedIdeas);
+      
+      if (parsedIdeas.length === 0) {
+        throw new Error('Failed to parse AI-generated ideas');
+      }
       
       // Store ideas in the database
       for (const idea of parsedIdeas) {
@@ -169,11 +211,14 @@ const GenerateIdeas = () => {
           .from('ideas')
           .insert({
             project_id: projectId,
-            title: idea.title,
-            description: idea.description,
-            target_audience: idea.target_audience,
-            problem_solved: idea.problem_solved,
-            ai_generated_data: idea.ai_generated_data
+            title: idea.title || 'Untitled Idea',
+            description: idea.description || 'No description provided',
+            target_audience: idea.target_audience || '',
+            problem_solved: idea.problem_solved || '',
+            ai_generated_data: {
+              key_features: idea.ai_generated_data.key_features || [],
+              revenue_model: idea.ai_generated_data.revenue_model || ''
+            }
           });
       }
       
