@@ -1,12 +1,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import {
   Button,
   Input,
-  Select,
   Textarea,
   Dialog,
   DialogTrigger,
@@ -17,10 +14,15 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
-  Badge
+  Badge,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui';
 import { format, isPast, isToday } from 'date-fns';
-import { Plus as PlusIcon, Calendar as CalendarIcon, Check as CheckIcon, X as XIcon } from 'lucide-react';
+import { PlusIcon, CalendarIcon, CheckIcon, XIcon } from 'lucide-react';
 
 interface TaskUser {
   id: string;
@@ -34,50 +36,36 @@ interface Task {
   project_id: string;
   title: string;
   description: string | null;
-  assigned_to: TaskUser | null;
-  created_by: TaskUser;
+  assigned_to: string | null;
+  created_by: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   due_date: string | null;
   priority: 'low' | 'medium' | 'high';
   created_at: string;
   updated_at: string;
+  assigned_to_user?: TaskUser;
+  created_by_user?: TaskUser;
 }
 
-interface NewTask {
-  title: string;
-  description: string;
-  assigned_to: string;
-  due_date: string;
-  priority: 'low' | 'medium' | 'high';
-}
-
-interface TaskListProps {
-  projectId: string;
-}
-
-export default function TaskList({ projectId }: TaskListProps) {
+export default function TaskList({ projectId }: { projectId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [collaborators, setCollaborators] = useState<TaskUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filteredStatus, setFilteredStatus] = useState('all');
-  const { user } = useAuth();
-  const { toast } = useToast();
   
   // New task form state
-  const [newTask, setNewTask] = useState<NewTask>({
+  const [newTask, setNewTask] = useState({
     title: '',
     description: '',
     assigned_to: '',
     due_date: '',
-    priority: 'medium'
+    priority: 'medium' as 'low' | 'medium' | 'high'
   });
   
   useEffect(() => {
-    if (projectId) {
-      fetchTasks();
-      fetchCollaborators();
-    }
+    fetchTasks();
+    fetchCollaborators();
   }, [projectId, filteredStatus]);
   
   async function fetchTasks() {
@@ -88,8 +76,8 @@ export default function TaskList({ projectId }: TaskListProps) {
         .from('tasks')
         .select(`
           *,
-          assigned_to:users!assigned_to(id, email, full_name, avatar_url),
-          created_by:users!created_by(id, email, full_name)
+          assigned_to_user:users!tasks_assigned_to_fkey(id, email, full_name, avatar_url),
+          created_by_user:users!tasks_created_by_fkey(id, email, full_name, avatar_url)
         `)
         .eq('project_id', projectId);
       
@@ -105,21 +93,18 @@ export default function TaskList({ projectId }: TaskListProps) {
       
       if (error) throw error;
       
-      // Transform the data to match our Task interface
-      const formattedTasks: Task[] = (data || []).map((task: any) => ({
-        ...task,
-        assigned_to: task.assigned_to,
-        created_by: task.created_by
-      }));
+      // Transform data to match Task interface
+      const transformedTasks = data?.map(item => {
+        return {
+          ...item,
+          assigned_to_user: item.assigned_to_user || null,
+          created_by_user: item.created_by_user || null
+        };
+      }) as Task[];
       
-      setTasks(formattedTasks);
-    } catch (error: any) {
+      setTasks(transformedTasks || []);
+    } catch (error) {
       console.error('Error fetching tasks:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load tasks',
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }
@@ -146,68 +131,41 @@ export default function TaskList({ projectId }: TaskListProps) {
         .in('id', userIds);
       
       if (error) throw error;
-      
-      setCollaborators(data || []);
-    } catch (error: any) {
+      setCollaborators(data as TaskUser[] || []);
+    } catch (error) {
       console.error('Error fetching collaborators:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load collaborators',
-        variant: 'destructive',
-      });
     }
   }
   
   async function handleSubmitTask() {
     try {
-      // Validate user
-      if (!user) {
-        toast({
-          title: 'Authentication required',
-          description: 'You must be logged in to create tasks',
-          variant: 'destructive',
-        });
-        return;
-      }
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
       
       // Validate form
-      if (!newTask.title) {
-        toast({
-          title: 'Validation error',
-          description: 'Task title is required',
-          variant: 'destructive',
-        });
-        return;
-      }
+      if (!newTask.title) return;
       
       const { data, error } = await supabase
         .from('tasks')
         .insert({
           project_id: projectId,
           title: newTask.title,
-          description: newTask.description || null,
+          description: newTask.description,
           assigned_to: newTask.assigned_to || null,
           created_by: user.id,
           due_date: newTask.due_date || null,
           priority: newTask.priority,
           status: 'pending'
         })
-        .select(`
-          *,
-          assigned_to:users!assigned_to(id, email, full_name, avatar_url),
-          created_by:users!created_by(id, email, full_name)
-        `)
+        .select()
         .single();
       
       if (error) throw error;
       
       // Add the new task to the list
-      setTasks(prev => [data as Task, ...prev]);
-      
-      toast({
-        title: 'Success',
-        description: 'Task created successfully',
-      });
+      await fetchTasks(); // Refresh the tasks to get the full data
       
       // Reset form
       setNewTask({
@@ -219,24 +177,17 @@ export default function TaskList({ projectId }: TaskListProps) {
       });
       
       setIsDialogOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating task:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create task',
-        variant: 'destructive',
-      });
     }
   }
   
-  async function handleUpdateTaskStatus(taskId: string, newStatus: Task['status']) {
+  async function handleUpdateTaskStatus(taskId: string, newStatus: 'pending' | 'in_progress' | 'completed' | 'cancelled') {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('tasks')
         .update({ status: newStatus })
-        .eq('id', taskId)
-        .select()
-        .single();
+        .eq('id', taskId);
       
       if (error) throw error;
       
@@ -244,24 +195,13 @@ export default function TaskList({ projectId }: TaskListProps) {
       setTasks(prev => 
         prev.map(task => task.id === taskId ? { ...task, status: newStatus } : task)
       );
-      
-      toast({
-        title: 'Success',
-        description: `Task ${newStatus === 'completed' ? 'marked as complete' : 
-          newStatus === 'cancelled' ? 'cancelled' : 'updated'}`,
-      });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating task status:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update task status',
-        variant: 'destructive',
-      });
     }
   }
   
   // Helper function to get status badge color
-  function getStatusBadge(status: Task['status']) {
+  function getStatusBadge(status: string) {
     switch (status) {
       case 'pending':
         return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
@@ -277,7 +217,7 @@ export default function TaskList({ projectId }: TaskListProps) {
   }
   
   // Helper function to get priority badge
-  function getPriorityBadge(priority: Task['priority']) {
+  function getPriorityBadge(priority: string) {
     switch (priority) {
       case 'high':
         return <Badge className="bg-red-100 text-red-800 border-red-200">High</Badge>;
@@ -317,17 +257,23 @@ export default function TaskList({ projectId }: TaskListProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-        <Select 
-          value={filteredStatus} 
-          onValueChange={(value) => setFilteredStatus(value)}
-          className="w-full sm:w-40"
-        >
-          <option value="all">All Tasks</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </Select>
+        <div>
+          <Select
+            value={filteredStatus}
+            onValueChange={setFilteredStatus}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tasks</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -367,12 +313,17 @@ export default function TaskList({ projectId }: TaskListProps) {
                   value={newTask.assigned_to}
                   onValueChange={(value) => setNewTask({...newTask, assigned_to: value})}
                 >
-                  <option value="">Unassigned</option>
-                  {collaborators.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.full_name || user.email}
-                    </option>
-                  ))}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {collaborators.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               
@@ -392,9 +343,14 @@ export default function TaskList({ projectId }: TaskListProps) {
                     value={newTask.priority}
                     onValueChange={(value: 'low' | 'medium' | 'high') => setNewTask({...newTask, priority: value})}
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
@@ -450,17 +406,17 @@ export default function TaskList({ projectId }: TaskListProps) {
                     </div>
                   )}
                   
-                  {task.assigned_to && (
+                  {task.assigned_to && task.assigned_to_user && (
                     <div className="flex items-center">
                       <span className="mr-2">Assigned to:</span>
                       <Avatar className="h-6 w-6 mr-1">
-                        {task.assigned_to.avatar_url ? (
-                          <AvatarImage src={task.assigned_to.avatar_url} alt={task.assigned_to.full_name || task.assigned_to.email} />
+                        {task.assigned_to_user.avatar_url ? (
+                          <AvatarImage src={task.assigned_to_user.avatar_url} alt={task.assigned_to_user.full_name || task.assigned_to_user.email} />
                         ) : (
-                          <AvatarFallback>{(task.assigned_to.full_name || task.assigned_to.email || "").charAt(0).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback>{(task.assigned_to_user.full_name || task.assigned_to_user.email || "").charAt(0).toUpperCase()}</AvatarFallback>
                         )}
                       </Avatar>
-                      <span>{task.assigned_to.full_name || task.assigned_to.email}</span>
+                      <span>{task.assigned_to_user.full_name || task.assigned_to_user.email}</span>
                     </div>
                   )}
                 </div>

@@ -28,9 +28,9 @@ import {
   FileText,
   BarChart,
   FileSearch,
-  Gantt,
-  MessageSquare,
-  Users
+  Users,
+  LayoutGrid as GanttIcon, // Using LayoutGrid as Gantt since Gantt icon isn't in lucide
+  MessageSquare
 } from 'lucide-react';
 import { Project, Idea } from '@/types/supabase';
 import ProjectSharingDialog from '@/components/Collaboration/ProjectSharingDialog';
@@ -63,7 +63,22 @@ export default function ProjectDetail() {
         .single();
 
       if (error) throw error;
-      setProject(data);
+      
+      // Cast the data to ensure it matches the Project type
+      const projectData: Project = {
+        id: data.id,
+        user_id: data.user_id,
+        title: data.title,
+        description: data.description || null,
+        stage: data.stage as 'ideation' | 'planning' | 'development' | 'launched',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        is_collaborative: data.is_collaborative || false,
+        collaborators: data.collaborators || [],
+        collaboration_settings: data.collaboration_settings || { permissions: 'view' }
+      };
+      
+      setProject(projectData);
     } catch (error: any) {
       console.error('Error fetching project:', error);
       toast({
@@ -85,7 +100,26 @@ export default function ProjectDetail() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setIdeas(data || []);
+      
+      // Cast the data to ensure it matches the Idea type
+      const ideasData: Idea[] = data.map(item => ({
+        id: item.id,
+        project_id: item.project_id,
+        title: item.title,
+        description: item.description || null,
+        target_audience: item.target_audience || null,
+        problem_solved: item.problem_solved || null,
+        ai_generated_data: item.ai_generated_data || null,
+        created_at: item.created_at,
+        status: item.status as 'draft' | 'developing' | 'ready' | 'archived',
+        tags: item.tags || [],
+        inspiration_sources: item.inspiration_sources || {},
+        collaboration_settings: item.collaboration_settings || { visibility: 'private' },
+        version: item.version,
+        version_history: item.version_history || []
+      }));
+      
+      setIdeas(ideasData);
     } catch (error: any) {
       console.error('Error fetching ideas:', error);
     }
@@ -248,7 +282,7 @@ export default function ProjectDetail() {
                       className="justify-start"
                       onClick={() => navigate(`/projects/${projectId}/visual-planning`)}
                     >
-                      <Gantt className="h-4 w-4 mr-2" />
+                      <GanttIcon className="h-4 w-4 mr-2" />
                       Visual Planning
                     </Button>
                     <Button

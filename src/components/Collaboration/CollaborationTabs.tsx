@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
+import { Card } from '@/components/ui';
 import CommentSection from './CommentSection';
 import TaskList from './TaskList';
 import ActivityFeed from './ActivityFeed';

@@ -1,12 +1,20 @@
 
+// supabase/functions/track-activity/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { supabase } from '../api-gateway/utils/supabase.ts';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+interface ActivityParams {
+  user_id: string;
+  activity_type: string;
+  entity_type: string;
+  entity_id: string;
+  details?: Record<string, any>;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,24 +23,34 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, entityType, entityId, activityType, details } = await req.json();
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-    // Validate required fields
-    if (!userId || !entityType || !entityId || !activityType) {
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get the request body
+    const { user_id, activity_type, entity_type, entity_id, details } = await req.json() as ActivityParams;
+
+    console.log(`Tracking activity for user ${user_id} on ${entity_type} ${entity_id}: ${activity_type}`);
+
+    // Validate input
+    if (!user_id || !activity_type || !entity_type || !entity_id) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Insert activity record
+    // Insert the activity record
     const { data, error } = await supabase
       .from('user_activity')
       .insert({
-        user_id: userId,
-        entity_type: entityType,
-        entity_id: entityId,
-        activity_type: activityType,
+        user_id,
+        activity_type,
+        entity_type,
+        entity_id,
         details: details || {}
       })
       .select()
@@ -40,22 +58,22 @@ serve(async (req) => {
 
     if (error) {
       console.error('Error tracking activity:', error);
-      throw error;
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
+    // Return success response
     return new Response(
-      JSON.stringify({ success: true, activity: data }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, data }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
-    console.error('API Gateway error:', error);
-    
+  } catch (err) {
+    console.error('Unexpected error processing activity tracking:', err);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

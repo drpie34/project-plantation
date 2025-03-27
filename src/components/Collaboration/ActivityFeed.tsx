@@ -7,8 +7,13 @@ import {
   AvatarFallback,
 } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
-import { User } from '@/types/supabase';
-import { useToast } from '@/hooks/use-toast';
+
+interface ActivityUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
 
 interface Activity {
   id: string;
@@ -16,139 +21,73 @@ interface Activity {
   activity_type: string;
   entity_type: string;
   entity_id: string;
-  details: Record<string, any>;
+  details: Record<string, any> | null;
   created_at: string;
 }
 
-interface ActivityFeedProps {
-  projectId: string;
-}
-
-export default function ActivityFeed({ projectId }: ActivityFeedProps) {
+export default function ActivityFeed({ projectId }: { projectId: string }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [usersMap, setUsersMap] = useState<Record<string, User>>({});
-  const { toast } = useToast();
+  const [usersMap, setUsersMap] = useState<Record<string, ActivityUser>>({});
   
   useEffect(() => {
-    if (projectId) {
-      fetchActivities();
-    }
+    fetchActivities();
   }, [projectId]);
   
   async function fetchActivities() {
     setIsLoading(true);
     
     try {
-      // Fetch activities for this project combining project activities, task activities, and comments
-      const { data: projectActivities, error: projectError } = await supabase
+      // Check if the table exists first to avoid errors
+      const { data, error } = await supabase
         .from('user_activity')
         .select('*')
         .eq('entity_type', 'project')
         .eq('entity_id', projectId)
         .order('created_at', { ascending: false })
-        .limit(10);
-        
-      if (projectError) throw projectError;
+        .limit(30);
       
-      // Fetch recent comments as activities
-      const { data: comments, error: commentsError } = await supabase
-        .from('comments')
-        .select('id, user_id, created_at, content')
-        .eq('entity_type', 'project')
-        .eq('entity_id', projectId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-        
-      if (commentsError) throw commentsError;
+      if (error) throw error;
       
-      // Fetch recent tasks as activities
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, title, created_by, status, created_at, updated_at')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-        
-      if (tasksError) throw tasksError;
+      setActivities(data as Activity[] || []);
       
-      // Transform comments to activity format
-      const commentActivities = comments.map(comment => ({
-        id: `comment-${comment.id}`,
-        user_id: comment.user_id,
-        activity_type: 'commented',
-        entity_type: 'project',
-        entity_id: projectId,
-        details: { content: comment.content },
-        created_at: comment.created_at
-      }));
-      
-      // Transform tasks to activity format
-      const taskActivities = tasks.map(task => ({
-        id: `task-${task.id}`,
-        user_id: task.created_by,
-        activity_type: 'task_created',
-        entity_type: 'task',
-        entity_id: task.id,
-        details: { title: task.title, status: task.status },
-        created_at: task.created_at
-      }));
-      
-      // Combine all activities and sort by date
-      const allActivities = [
-        ...(projectActivities || []),
-        ...commentActivities,
-        ...taskActivities
-      ].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ).slice(0, 30);
-      
-      setActivities(allActivities);
-      
-      // Fetch user information for all activities
-      const userIds = [...new Set(allActivities.map(activity => activity.user_id))];
-      if (userIds.length > 0) {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, email, full_name, avatar_url')
-          .in('id', userIds);
-        
-        if (userError) throw userError;
-        
-        // Create a map of user IDs to user data
-        const usersMapData = userData.reduce((acc: Record<string, any>, user: any) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
-        
-        setUsersMap(usersMapData);
+      if (data && data.length > 0) {
+        // Fetch user information for all activities
+        const userIds = [...new Set(data.map(activity => activity.user_id))];
+        if (userIds.length > 0) {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, email, full_name, avatar_url')
+            .in('id', userIds);
+          
+          if (userError) throw userError;
+          
+          // Create a map of user IDs to user data
+          const usersMapData = userData.reduce((acc: Record<string, ActivityUser>, user: ActivityUser) => {
+            acc[user.id] = user;
+            return acc;
+          }, {});
+          
+          setUsersMap(usersMapData);
+        }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching activities:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load activity feed',
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }
   }
   
-  function getUserInfo(userId: string): User {
+  function getUserInfo(userId: string): ActivityUser {
     return usersMap[userId] || { 
       id: userId,
       email: 'Unknown User', 
       full_name: null,
-      avatar_url: null,
-      subscription_tier: 'free',
-      credits_remaining: 0,
-      credits_reset_date: '',
-      created_at: ''
+      avatar_url: null 
     };
   }
   
-  function getActivityIcon(activityType: string) {
+  function getActivityIcon(activityType: string): string {
     switch (activityType) {
       case 'created':
         return "🟢";
@@ -169,7 +108,7 @@ export default function ActivityFeed({ projectId }: ActivityFeedProps) {
     }
   }
   
-  function getActivityDescription(activity: Activity) {
+  function getActivityDescription(activity: Activity): string {
     const entityType = activity.entity_type.charAt(0).toUpperCase() + activity.entity_type.slice(1);
     
     switch (activity.activity_type) {

@@ -24,3 +24,34 @@ export async function callApiGateway<T = any>(action: string, payload: any = {})
     throw error;
   }
 }
+
+/**
+ * Track user activity
+ * @param userId The user ID
+ * @param activityType Type of activity (created, updated, deleted, etc.)
+ * @param entityType Type of entity (project, idea, task, etc.)
+ * @param entityId ID of the entity
+ * @param details Optional details about the activity
+ */
+export async function trackActivity(
+  userId: string,
+  activityType: string,
+  entityType: string,
+  entityId: string,
+  details: Record<string, any> = {}
+): Promise<void> {
+  try {
+    await supabase.functions.invoke('track-activity', {
+      body: {
+        user_id: userId,
+        activity_type: activityType,
+        entity_type: entityType,
+        entity_id: entityId,
+        details
+      },
+    });
+  } catch (error) {
+    console.error('Failed to track activity:', error);
+    // Don't throw - activity tracking should not block main functionality
+  }
+}

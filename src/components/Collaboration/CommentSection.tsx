@@ -16,8 +16,13 @@ import {
 } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { User } from '@/types/supabase';
-import { useAuth } from '@/context/AuthContext';
+
+interface CommentUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
 
 interface Comment {
   id: string;
@@ -36,20 +41,47 @@ interface CommentSectionProps {
 
 export default function CommentSection({ entityType, entityId }: CommentSectionProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const [currentUser, setCurrentUser] = useState<CommentUser | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
+  const [usersMap, setUsersMap] = useState<Record<string, CommentUser>>({});
   const { toast } = useToast();
   
   useEffect(() => {
+    fetchCurrentUser();
     if (entityId) {
       fetchComments();
     }
   }, [entityType, entityId]);
+  
+  async function fetchCurrentUser() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return;
+      }
+      
+      // Get user profile
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      
+      setCurrentUser(data as CommentUser);
+      
+      // Add the current user to the users map
+      setUsersMap(prev => ({ ...prev, [data.id]: data }));
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  }
   
   async function fetchComments() {
     setIsLoading(true);
@@ -78,7 +110,7 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
         if (userError) throw userError;
         
         // Create a map of user IDs to user data
-        const usersMapData = userData.reduce((acc: Record<string, any>, user: any) => {
+        const usersMapData = userData.reduce((acc: Record<string, CommentUser>, user: CommentUser) => {
           acc[user.id] = user;
           return acc;
         }, {});
@@ -99,8 +131,8 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
   }
   
   async function handleAddComment() {
-    if (!commentText.trim() || !user) {
-      if (!user) {
+    if (!commentText.trim() || !currentUser) {
+      if (!currentUser) {
         toast({
           title: 'Authentication required',
           description: 'You must be logged in to add comments',
@@ -119,7 +151,7 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
         .insert({
           entity_type: entityType,
           entity_id: entityId,
-          user_id: user.id,
+          user_id: currentUser.id,
           content: commentText.trim(),
         })
         .select()
@@ -148,7 +180,7 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
     }
   }
   
-  function getUserInfo(userId: string): any {
+  function getUserInfo(userId: string): CommentUser {
     return usersMap[userId] || { 
       id: userId,
       email: 'Unknown User', 
@@ -169,14 +201,14 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
           </div>
         )}
         
-        {user && (
+        {currentUser && (
           <div className="mb-6">
             <div className="flex items-start gap-3">
               <Avatar className="h-10 w-10">
-                {user.avatar_url ? (
-                  <AvatarImage src={user.avatar_url} alt={user.full_name || user.email} />
+                {currentUser.avatar_url ? (
+                  <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name || currentUser.email} />
                 ) : (
-                  <AvatarFallback>{(user.full_name || user.email || "").charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{(currentUser.full_name || currentUser.email || "").charAt(0).toUpperCase()}</AvatarFallback>
                 )}
               </Avatar>
               <div className="flex-1">

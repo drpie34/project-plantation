@@ -11,28 +11,41 @@ import {
   DialogFooter,
   Button,
   Input,
-  Select,
   Badge,
   Avatar,
   AvatarFallback,
-  AvatarImage
+  AvatarImage,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui';
 import { Search as SearchIcon, UserPlus as UserPlusIcon, X as XIcon } from 'lucide-react';
-import { Project } from '@/types/supabase';
-import { useToast } from '@/hooks/use-toast';
 
-interface ProjectSharingDialogProps {
-  project: Project;
-  trigger: React.ReactNode;
-  onUpdate?: (updatedProject: Project) => void;
-}
-
-type CollaboratorUser = {
+interface CollaboratorUser {
   id: string;
   email: string;
   full_name: string | null;
   avatar_url: string | null;
-};
+}
+
+interface ProjectWithCollaboration {
+  id: string;
+  title: string;
+  user_id: string;
+  collaborators: string[];
+  is_collaborative: boolean;
+  collaboration_settings: {
+    permissions: 'view' | 'comment' | 'edit';
+  } | null;
+}
+
+interface ProjectSharingDialogProps {
+  project: ProjectWithCollaboration;
+  trigger: React.ReactNode;
+  onUpdate?: (updatedProject: ProjectWithCollaboration) => void;
+}
 
 export default function ProjectSharingDialog({ 
   project, 
@@ -44,11 +57,10 @@ export default function ProjectSharingDialog({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CollaboratorUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [permissions, setPermissions] = useState<"view" | "comment" | "edit">(
-    (project.collaboration_settings?.permissions as "view" | "comment" | "edit") || "view"
+  const [permissions, setPermissions] = useState<'view' | 'comment' | 'edit'>(
+    project.collaboration_settings?.permissions || 'view'
   );
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
   
   useEffect(() => {
     if (isOpen) {
@@ -66,19 +78,14 @@ export default function ProjectSharingDialog({
       const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name, avatar_url')
-        .in('id', project.collaborators as string[]);
+        .in('id', project.collaborators);
       
       if (error) throw error;
       
-      setCollaborators(data || []);
-    } catch (error: any) {
+      setCollaborators(data as CollaboratorUser[] || []);
+    } catch (error) {
       console.error('Error fetching collaborators:', error);
       setError('Failed to load collaborators');
-      toast({
-        title: 'Error',
-        description: 'Failed to load collaborators',
-        variant: 'destructive',
-      });
     }
   }
   
@@ -101,20 +108,15 @@ export default function ProjectSharingDialog({
       if (error) throw error;
       
       // Filter out the current user and existing collaborators
-      const filtered = data.filter(user => 
-        !project.collaborators?.includes(user.id) && 
+      const filtered = data.filter((user: CollaboratorUser) => 
+        !project.collaborators.includes(user.id) && 
         user.id !== project.user_id
       );
       
-      setSearchResults(filtered);
-    } catch (error: any) {
+      setSearchResults(filtered as CollaboratorUser[]);
+    } catch (error) {
       console.error('Error searching users:', error);
       setError('Error searching for users');
-      toast({
-        title: 'Error',
-        description: 'Failed to search users',
-        variant: 'destructive',
-      });
     } finally {
       setIsSearching(false);
     }
@@ -127,7 +129,7 @@ export default function ProjectSharingDialog({
       if (!user) return;
       
       // Update project collaborators
-      const updatedCollaborators = [...(project.collaborators || []), userId];
+      const updatedCollaborators = [...project.collaborators, userId];
       
       const { error } = await supabase
         .from('projects')
@@ -147,11 +149,6 @@ export default function ProjectSharingDialog({
       setCollaborators(prev => [...prev, user]);
       setSearchResults(prev => prev.filter(u => u.id !== userId));
       
-      toast({
-        title: 'Success',
-        description: `Added ${user.full_name || user.email} as a collaborator`,
-      });
-      
       // Call onUpdate callback
       if (onUpdate) {
         onUpdate({
@@ -164,21 +161,16 @@ export default function ProjectSharingDialog({
           }
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding collaborator:', error);
       setError('Failed to add collaborator');
-      toast({
-        title: 'Error',
-        description: 'Failed to add collaborator',
-        variant: 'destructive',
-      });
     }
   }
   
   async function removeCollaborator(userId: string) {
     try {
       // Update project collaborators
-      const updatedCollaborators = (project.collaborators || []).filter(id => id !== userId);
+      const updatedCollaborators = project.collaborators.filter(id => id !== userId);
       
       const { error } = await supabase
         .from('projects')
@@ -193,11 +185,6 @@ export default function ProjectSharingDialog({
       // Update local state
       setCollaborators(prev => prev.filter(user => user.id !== userId));
       
-      toast({
-        title: 'Success',
-        description: 'Collaborator removed',
-      });
-      
       // Call onUpdate callback
       if (onUpdate) {
         onUpdate({
@@ -206,14 +193,9 @@ export default function ProjectSharingDialog({
           collaborators: updatedCollaborators,
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error removing collaborator:', error);
       setError('Failed to remove collaborator');
-      toast({
-        title: 'Error',
-        description: 'Failed to remove collaborator',
-        variant: 'destructive',
-      });
     }
   }
   
@@ -231,11 +213,6 @@ export default function ProjectSharingDialog({
       
       if (error) throw error;
       
-      toast({
-        title: 'Success',
-        description: 'Collaboration settings updated',
-      });
-      
       // Call onUpdate callback
       if (onUpdate) {
         onUpdate({
@@ -248,14 +225,9 @@ export default function ProjectSharingDialog({
       }
       
       setIsOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating permissions:', error);
       setError('Failed to update permissions');
-      toast({
-        title: 'Error',
-        description: 'Failed to update permissions',
-        variant: 'destructive',
-      });
     }
   }
   
@@ -386,11 +358,16 @@ export default function ProjectSharingDialog({
             </label>
             <Select
               value={permissions}
-              onValueChange={(value: "view" | "comment" | "edit") => setPermissions(value)}
+              onValueChange={(value: 'view' | 'comment' | 'edit') => setPermissions(value)}
             >
-              <option value="view">View only</option>
-              <option value="comment">Can comment</option>
-              <option value="edit">Can edit</option>
+              <SelectTrigger>
+                <SelectValue placeholder="Select permissions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="view">View only</SelectItem>
+                <SelectItem value="comment">Can comment</SelectItem>
+                <SelectItem value="edit">Can edit</SelectItem>
+              </SelectContent>
             </Select>
             <p className="text-xs text-gray-500 mt-1">
               This applies to all collaborators on this project
