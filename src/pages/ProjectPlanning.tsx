@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,28 +20,31 @@ import { AIModelIndicator } from '@/components/AIModelIndicator';
 import { ExtendedThinkingDisplay } from '@/components/ExtendedThinkingDisplay';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
-interface PlanResult {
-  content: string;
-  model: string;
-  thinking: string | null;
-  extendedThinking: boolean;
-}
+import { useProjectPlanning } from '@/hooks/useProjectPlanning';
 
 export default function ProjectPlanning() {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const ideaId = searchParams.get('ideaId');
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
   const [requirements, setRequirements] = useState<string>('');
   const [planningType, setPlanningType] = useState<string>('timeline');
-  const [planResult, setPlanResult] = useState<PlanResult | null>(null);
+  
+  const {
+    generatePlan,
+    isLoading: isGenerating,
+    result: planResult,
+    creditsRemaining,
+    defaultRequirements,
+    loadIdeaDetails
+  } = useProjectPlanning(projectId || '');
   
   useEffect(() => {
     if (!projectId) return;
@@ -87,6 +90,20 @@ export default function ProjectPlanning() {
     
     fetchData();
   }, [projectId, navigate, user, toast]);
+
+  // Load idea details when ideaId is provided
+  useEffect(() => {
+    if (ideaId) {
+      loadIdeaDetails(ideaId);
+    }
+  }, [ideaId]);
+
+  // Set the requirements when defaultRequirements changes
+  useEffect(() => {
+    if (defaultRequirements) {
+      setRequirements(defaultRequirements);
+    }
+  }, [defaultRequirements]);
   
   const handleGeneratePlan = async () => {
     if (!requirements) {
@@ -99,35 +116,12 @@ export default function ProjectPlanning() {
       return;
     }
     
-    setIsGenerating(true);
-    setError(null);
-    
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-planning`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          userId: user?.id,
-          projectId,
-          requirements,
-          planningType
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Error generating project plan');
-      }
-      
-      setPlanResult(data.plan);
+      await generatePlan(requirements, planningType as 'timeline' | 'resources' | 'technical' | 'general');
       
       toast({
         title: 'Plan generated',
-        description: `Generated with ${data.plan.model}. ${data.credits_remaining} credits remaining.`,
+        description: `Generated with ${planResult?.model || 'AI'}. ${creditsRemaining} credits remaining.`,
       });
       
     } catch (error: any) {
@@ -138,8 +132,6 @@ export default function ProjectPlanning() {
         description: error.message || 'Failed to generate project plan',
         variant: 'destructive',
       });
-    } finally {
-      setIsGenerating(false);
     }
   };
   
@@ -250,7 +242,7 @@ export default function ProjectPlanning() {
               </div>
               
               <div className="mt-6 flex justify-end">
-                <Button variant="outline" onClick={() => setPlanResult(null)}>
+                <Button variant="outline" onClick={() => generatePlan('', 'general')}>
                   Generate Another Plan
                 </Button>
               </div>

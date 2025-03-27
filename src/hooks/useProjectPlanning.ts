@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { generateProjectPlan, ProjectPlanningResponse } from '@/utils/projectPlanningUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface PlanResult {
   content: string;
@@ -15,7 +16,47 @@ export const useProjectPlanning = (projectId: string) => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PlanResult | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
+  const [defaultRequirements, setDefaultRequirements] = useState<string>('');
   const { user } = useAuth();
+
+  // Function to load idea details when an ideaId is provided
+  const loadIdeaDetails = async (ideaId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('*')
+        .eq('id', ideaId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        // Create a comprehensive planning requirements based on idea details
+        let requirements = `Create a detailed project plan for the following SaaS product:
+        
+Title: ${data.title}
+Description: ${data.description || 'Not provided'}
+Problem Solved: ${data.problem_solved || 'Not provided'}
+Target Audience: ${data.target_audience || 'Not provided'}
+Tags: ${data.tags?.join(', ') || 'None'}
+
+${data.ai_generated_data?.key_features ? 
+  `Key Features:
+${data.ai_generated_data.key_features.map((feature: string) => `- ${feature}`).join('\n')}` 
+  : ''}
+
+${data.ai_generated_data?.revenue_model ? 
+  `Revenue Model: ${data.ai_generated_data.revenue_model}` 
+  : ''}
+
+Please provide a comprehensive project plan including timeline, required resources, and technical considerations.`;
+
+        setDefaultRequirements(requirements);
+      }
+    } catch (err) {
+      console.error('Error loading idea details for planning:', err);
+    }
+  };
 
   const generatePlan = async (
     requirements: string,
@@ -55,6 +96,8 @@ export const useProjectPlanning = (projectId: string) => {
     error,
     result,
     creditsRemaining,
-    reset: () => setResult(null)
+    reset: () => setResult(null),
+    defaultRequirements,
+    loadIdeaDetails
   };
 };

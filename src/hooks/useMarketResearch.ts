@@ -1,7 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { conductMarketResearch, MarketResearchResponse } from '@/utils/marketResearchUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useMarketResearch = (projectId: string) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -13,7 +14,38 @@ export const useMarketResearch = (projectId: string) => {
     webSearch: boolean;
   } | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
+  const [defaultQuery, setDefaultQuery] = useState<string>('');
   const { user } = useAuth();
+
+  // Function to load idea details when an ideaId is provided
+  const loadIdeaDetails = async (ideaId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('*')
+        .eq('id', ideaId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        // Create a comprehensive research query based on idea details
+        let query = `Conduct market research for a SaaS product with the following details:
+        
+Title: ${data.title}
+Description: ${data.description || 'Not provided'}
+Problem Solved: ${data.problem_solved || 'Not provided'}
+Target Audience: ${data.target_audience || 'Not provided'}
+Tags: ${data.tags?.join(', ') || 'None'}
+
+Please analyze the market potential, competitive landscape, and target customer needs for this SaaS idea.`;
+
+        setDefaultQuery(query);
+      }
+    } catch (err) {
+      console.error('Error loading idea details for research:', err);
+    }
+  };
 
   const conductResearch = async (query: string) => {
     if (!user?.id || !projectId || !query.trim()) {
@@ -56,6 +88,8 @@ export const useMarketResearch = (projectId: string) => {
     error,
     result,
     creditsRemaining,
-    reset: () => setResult(null)
+    reset: () => setResult(null),
+    defaultQuery,
+    loadIdeaDetails
   };
 };

@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -17,6 +17,8 @@ import { useMarketResearch } from '@/hooks/useMarketResearch';
 
 export default function MarketResearch() {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const ideaId = searchParams.get('ideaId');
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -28,8 +30,24 @@ export default function MarketResearch() {
     isLoading,
     result,
     creditsRemaining,
-    reset
+    reset,
+    defaultQuery,
+    loadIdeaDetails
   } = useMarketResearch(projectId || '');
+  
+  // Load idea details when ideaId is provided
+  useEffect(() => {
+    if (ideaId) {
+      loadIdeaDetails(ideaId);
+    }
+  }, [ideaId]);
+
+  // Set the query when defaultQuery changes
+  useEffect(() => {
+    if (defaultQuery) {
+      setQuery(defaultQuery);
+    }
+  }, [defaultQuery]);
   
   const handleResearch = async () => {
     if (!query.trim()) {
@@ -87,7 +105,7 @@ export default function MarketResearch() {
                 <Textarea
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  rows={4}
+                  rows={6}
                   placeholder="What would you like to research? E.g., 'Market size and trends for project management tools in small businesses'"
                   className="mb-2"
                 />
