@@ -1,9 +1,12 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Idea, IdeaCategory, Project } from '@/types/supabase';
-import { TagInput } from '@/components/TagInput';
+import { Idea, IdeaCategory } from '@/types/supabase';
+import { useProjects } from '@/hooks/useProjects';
+import IdeaFormFields from './IdeaFormFields';
+import CategorySelector from './CategorySelector';
 import {
   Dialog,
   DialogContent,
@@ -12,17 +15,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue 
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
 interface NewIdeaDialogProps {
@@ -35,9 +28,9 @@ interface NewIdeaDialogProps {
 export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }: NewIdeaDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { projects, fetchProjects } = useProjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -47,54 +40,16 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
     tags: [] as string[]
   });
   
-  // Load user's projects when dialog opens
+  // Load user's projects and set initial project when dialog opens
   useState(() => {
     if (isOpen && user) {
-      fetchUserProjects();
-    }
-  });
-  
-  async function fetchUserProjects() {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('updated_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      // Process the projects to ensure they match the Project type
-      if (data) {
-        const typedProjects: Project[] = data.map(project => ({
-          id: project.id,
-          user_id: project.user_id,
-          title: project.title,
-          description: project.description || null,
-          stage: project.stage as "ideation" | "planning" | "development" | "launched",
-          created_at: project.created_at,
-          updated_at: project.updated_at,
-          is_collaborative: project.is_collaborative || false,
-          collaborators: project.collaborators || [],
-          collaboration_settings: project.collaboration_settings 
-            ? { permissions: (project.collaboration_settings as any).permissions as "view" | "comment" | "edit" } 
-            : { permissions: "view" }
-        }));
-        
-        setProjects(typedProjects);
-        if (typedProjects.length > 0) {
-          setSelectedProject(typedProjects[0].id);
+      fetchProjects().then(fetchedProjects => {
+        if (fetchedProjects.length > 0 && !selectedProject) {
+          setSelectedProject(fetchedProjects[0].id);
         }
-      }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load projects',
-        variant: 'destructive',
       });
     }
-  }
+  });
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -165,19 +120,7 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       
       // Add category links if categories are selected
       if (selectedCategories.length > 0) {
-        const categoryLinks = selectedCategories.map(categoryId => ({
-          idea_id: typedIdea.id,
-          category_id: categoryId
-        }));
-        
-        const { error: linkError } = await supabase
-          .from('idea_category_links')
-          .insert(categoryLinks);
-        
-        if (linkError) {
-          console.error('Error adding category links:', linkError);
-          // Continue anyway, the idea was created successfully
-        }
+        await addIdeaCategories(typedIdea.id, selectedCategories);
       }
       
       toast({
@@ -189,14 +132,7 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       onCreate(typedIdea);
       
       // Reset form
-      setFormData({
-        title: '',
-        description: '',
-        target_audience: '',
-        problem_solved: '',
-        tags: []
-      });
-      setSelectedCategories([]);
+      resetForm();
       onClose();
       
     } catch (error) {
@@ -210,6 +146,37 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       setIsSubmitting(false);
     }
   };
+
+  const addIdeaCategories = async (ideaId: string, categoryIds: string[]) => {
+    try {
+      const categoryLinks = categoryIds.map(categoryId => ({
+        idea_id: ideaId,
+        category_id: categoryId
+      }));
+      
+      const { error: linkError } = await supabase
+        .from('idea_category_links')
+        .insert(categoryLinks);
+      
+      if (linkError) {
+        console.error('Error adding category links:', linkError);
+        // Continue anyway, the idea was created successfully
+      }
+    } catch (error) {
+      console.error('Error adding categories:', error);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      target_audience: '',
+      problem_solved: '',
+      tags: []
+    });
+    setSelectedCategories([]);
+  };
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -221,135 +188,22 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
-              Title <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="Enter idea title"
-              className="col-span-3"
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="project" className="text-right">
-              Project <span className="text-red-500">*</span>
-            </Label>
-            <div className="col-span-3">
-              {projects.length > 0 ? (
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No projects found. <Button variant="link" className="p-0 h-auto">Create a new project</Button>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Describe your idea"
-              className="col-span-3"
-              rows={3}
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="target_audience" className="text-right">
-              Target Audience
-            </Label>
-            <Textarea
-              id="target_audience"
-              name="target_audience"
-              value={formData.target_audience}
-              onChange={handleChange}
-              placeholder="Who is this idea for?"
-              className="col-span-3"
-              rows={2}
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="problem_solved" className="text-right">
-              Problem Solved
-            </Label>
-            <Textarea
-              id="problem_solved"
-              name="problem_solved"
-              value={formData.problem_solved}
-              onChange={handleChange}
-              placeholder="What problem does this idea solve?"
-              className="col-span-3"
-              rows={2}
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="tags" className="text-right">
-              Tags
-            </Label>
-            <div className="col-span-3">
-              <TagInput
-                tags={formData.tags}
-                setTags={handleTagsChange}
-                placeholder="Add tags..."
-                maxTags={5}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Press Enter or comma to add a tag (max 5)
-              </p>
-            </div>
-          </div>
-          
-          {categories.length > 0 && (
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right">
-                Categories
-              </Label>
-              <div className="col-span-3">
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(category => (
-                    <Button
-                      key={category.id}
-                      type="button"
-                      variant={selectedCategories.includes(category.id) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleCategoryChange(category.id)}
-                      style={{
-                        borderColor: selectedCategories.includes(category.id) ? undefined : category.color
-                      }}
-                    >
-                      {category.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <IdeaFormFields 
+          formData={formData}
+          handleChange={handleChange}
+          handleTagsChange={handleTagsChange}
+          projects={projects}
+          selectedProject={selectedProject}
+          setSelectedProject={setSelectedProject}
+        />
+        
+        {categories.length > 0 && (
+          <CategorySelector 
+            categories={categories}
+            selectedCategories={selectedCategories}
+            onChange={handleCategoryChange}
+          />
+        )}
         
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
