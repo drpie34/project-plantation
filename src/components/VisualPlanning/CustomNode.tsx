@@ -2,7 +2,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
-// Define the shape of our node data property only
+// Define the shape of the node data property only
 interface CustomNodeData {
   label: string;
 }
