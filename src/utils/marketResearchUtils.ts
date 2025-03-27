@@ -1,5 +1,5 @@
 
-import { callApiGateway } from '@/utils/apiGateway';
+import { supabase } from '@/integrations/supabase/client';
 
 export type MarketResearchParams = {
   userId: string;
@@ -25,24 +25,22 @@ export type MarketResearchResponse = {
 
 export async function conductMarketResearch(params: MarketResearchParams): Promise<MarketResearchResponse> {
   try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-research`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify(params),
+    const { data, error } = await supabase.functions.invoke('market-research', {
+      body: params
     });
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Error conducting market research');
+    if (error) {
+      console.error('Market research API error:', error);
+      throw new Error(error.message || 'Error conducting market research');
     }
     
-    return data;
+    if (!data) {
+      throw new Error('Empty response from market research API');
+    }
+    
+    return data as MarketResearchResponse;
   } catch (error: any) {
     console.error('Error conducting market research:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to conduct market research');
   }
 }
