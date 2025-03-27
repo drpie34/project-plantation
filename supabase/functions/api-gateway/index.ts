@@ -24,7 +24,44 @@ serve(async (req) => {
   try {
     const { action, payload } = await req.json();
     
+    console.log(`API Gateway called with action: ${action}`);
+    
     switch (action) {
+      case 'check-status':
+        // Return the status of configured API keys
+        return new Response(
+          JSON.stringify({
+            message: 'API Gateway is operational',
+            configuredKeys: {
+              'OpenAI': OPENAI_API_KEY ? 'configured' : 'not configured',
+              'Anthropic': ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+              'Stripe': STRIPE_SECRET_KEY ? 'configured' : 'not configured'
+            },
+            receivedAction: action
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+        
+      case 'check-ai-router':
+        // Call the AI router function and return the result
+        const aiRouterResponse = await supabase.functions.invoke('ai-router', {
+          body: {
+            task: payload.task || 'basicChat',
+            content: payload.content || 'Hello, AI Router!',
+            userTier: payload.userTier || 'free',
+            options: payload.options || {}
+          }
+        });
+        
+        if (aiRouterResponse.error) {
+          throw new Error(aiRouterResponse.error.message || 'Error connecting to AI Router');
+        }
+        
+        return new Response(
+          JSON.stringify(aiRouterResponse.data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      
       case 'getCredits':
         // Get the user ID from the payload
         const userId = payload.userId;
