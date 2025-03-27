@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeftIcon } from 'lucide-react';
+import { callApiGateway } from '@/utils/apiGateway';
 
 const GenerateIdeas = () => {
   const [project, setProject] = useState<Project | null>(null);
@@ -90,60 +91,80 @@ const GenerateIdeas = () => {
     setIsLoading(true);
 
     try {
-      // For Phase 1 we'll use a mock response since we don't have the actual OpenAI implementation yet
-      // This would normally call an API endpoint that connects to OpenAI
+      // Prepare the prompt for idea generation
+      const prompt = `Generate 3 innovative SaaS ideas for the ${industry} industry.
+      ${interests ? `Focus areas or interests: ${interests}` : ''}
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      For each idea, provide:
+      1. A catchy title
+      2. A brief description (2-3 sentences)
+      3. The target audience
+      4. The main problem it solves
+      5. 3-5 key features
+      6. A potential revenue model
       
-      // Mock ideas based on inputs
-      const mockIdeas = [
-        {
-          title: `${industry} Analytics Dashboard`,
-          description: `A comprehensive analytics platform for ${industry} businesses.`,
-          target_audience: `${industry} business owners and managers`,
-          problem_solved: `Lack of actionable insights in the ${industry} space`,
-          ai_generated_data: {
-            key_features: [
-              'Real-time data visualization',
-              'Custom reporting',
-              'Predictive analytics'
-            ],
-            revenue_model: 'Monthly subscription'
-          }
-        },
-        {
-          title: `${industry} Connector`,
-          description: `A platform that connects ${industry} professionals with clients.`,
-          target_audience: `${industry} professionals and service seekers`,
-          problem_solved: 'Difficulty finding reliable professional services',
-          ai_generated_data: {
-            key_features: [
-              'Verified profiles',
-              'Booking system',
-              'Payment processing'
-            ],
-            revenue_model: 'Transaction fees'
-          }
-        },
-        {
-          title: `${industry} Automator`,
-          description: `Workflow automation tool tailored for ${industry} processes.`,
-          target_audience: `${industry} teams and organizations`,
-          problem_solved: 'Manual, time-consuming workflows',
-          ai_generated_data: {
-            key_features: [
-              'Process templates',
-              'Integration with existing tools',
-              'Analytics and optimization'
-            ],
-            revenue_model: 'Tiered subscription'
-          }
+      Format the response in a structured way that can be easily parsed.`;
+      
+      // Call the AI router through the API gateway
+      const result = await callApiGateway('check-ai-router', {
+        task: 'ideaGeneration',
+        content: prompt,
+        userTier: profile.subscription_tier || 'free',
+        options: {
+          systemPrompt: 'You are an expert in SaaS business models and startup ideas. Generate innovative, practical SaaS ideas based on the industry specified.',
+          temperature: 0.8
         }
-      ];
+      });
+      
+      if (!result || !result.content) {
+        throw new Error('Failed to generate ideas');
+      }
+      
+      // Parse the AI response to extract ideas
+      // This is a simple parser, can be improved for more complex responses
+      const content = result.content;
+      const ideasSections = content.split(/Idea \d+:/g).filter(Boolean);
+      
+      const parsedIdeas = ideasSections.map(section => {
+        // Extract title
+        const titleMatch = section.match(/Title:?\s*([^\n]+)/i);
+        const title = titleMatch ? titleMatch[1].trim() : 'Untitled Idea';
+        
+        // Extract description
+        const descMatch = section.match(/Description:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i);
+        const description = descMatch ? descMatch[1].trim() : '';
+        
+        // Extract target audience
+        const targetMatch = section.match(/Target Audience:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
+        const targetAudience = targetMatch ? targetMatch[1].trim() : '';
+        
+        // Extract problem solved
+        const problemMatch = section.match(/Problem:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
+        const problemSolved = problemMatch ? problemMatch[1].trim() : '';
+        
+        // Extract features
+        const featuresMatch = section.match(/Key Features:?\s*([\s\S]*?)(?=\n\s*Revenue|$)/i);
+        let featuresText = featuresMatch ? featuresMatch[1].trim() : '';
+        const features = featuresText.split(/\n-|\n\d+\./).map(f => f.trim()).filter(Boolean);
+        
+        // Extract revenue model
+        const revenueMatch = section.match(/Revenue Model:?\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*(?:Idea \d+:|$))/i);
+        const revenueModel = revenueMatch ? revenueMatch[1].trim() : '';
+        
+        return {
+          title,
+          description,
+          target_audience: targetAudience,
+          problem_solved: problemSolved,
+          ai_generated_data: {
+            key_features: features,
+            revenue_model: revenueModel
+          }
+        };
+      });
       
       // Store ideas in the database
-      for (const idea of mockIdeas) {
+      for (const idea of parsedIdeas) {
         await supabase
           .from('ideas')
           .insert({
@@ -161,19 +182,20 @@ const GenerateIdeas = () => {
         .from('api_usage')
         .insert({
           user_id: user.id,
-          api_type: 'openai',
-          model_used: 'gpt-4o-mini',
-          tokens_input: 200, // Estimated
-          tokens_output: 800, // Estimated
-          credits_used: 5,
+          api_type: result.usage.api,
+          model_used: result.usage.model,
+          tokens_input: result.usage.inputTokens,
+          tokens_output: result.usage.outputTokens,
+          credits_used: result.usage.creditCost || 5,
           timestamp: new Date().toISOString()
         });
       
       // Update user credits
+      const creditCost = result.usage.creditCost || 5;
       await supabase
         .from('users')
         .update({ 
-          credits_remaining: profile.credits_remaining - 5 
+          credits_remaining: profile.credits_remaining - creditCost 
         })
         .eq('id', user.id);
       
@@ -184,6 +206,7 @@ const GenerateIdeas = () => {
       
       navigate(`/projects/${projectId}`);
     } catch (error: any) {
+      console.error('Error generating ideas:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to generate ideas',
