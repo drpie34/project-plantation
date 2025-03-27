@@ -27,6 +27,8 @@ export default function VisualPlanning() {
 
       try {
         setLoading(true);
+        console.log("Fetching project with ID:", projectId); // Debug log
+        
         const { data, error } = await supabase
           .from('projects')
           .select('*')

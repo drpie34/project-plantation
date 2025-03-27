@@ -12,8 +12,8 @@ import {
   Connection,
   Edge,
   Node,
-  NodeChange,
   EdgeChange,
+  NodeChange,
   NodeTypes
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
