@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -54,7 +53,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filteredStatus, setFilteredStatus] = useState('all');
   
-  // New task form state
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -81,19 +79,16 @@ export default function TaskList({ projectId }: { projectId: string }) {
         `)
         .eq('project_id', projectId);
       
-      // Apply status filter if not 'all'
       if (filteredStatus !== 'all') {
         query = query.eq('status', filteredStatus);
       }
       
-      // Sort by due date and priority
       query = query.order('due_date', { ascending: true });
       
       const { data, error } = await query;
       
       if (error) throw error;
       
-      // Transform data to match Task interface
       const transformedTasks = data?.map(item => {
         return {
           ...item,
@@ -112,7 +107,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
   
   async function fetchCollaborators() {
     try {
-      // First get the project to find collaborators
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .select('user_id, collaborators')
@@ -121,10 +115,8 @@ export default function TaskList({ projectId }: { projectId: string }) {
       
       if (projectError) throw projectError;
       
-      // Combine project owner with collaborators
       const userIds = [project.user_id, ...(project.collaborators || [])];
       
-      // Then fetch user details
       const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name, avatar_url')
@@ -139,12 +131,10 @@ export default function TaskList({ projectId }: { projectId: string }) {
   
   async function handleSubmitTask() {
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
       
-      // Validate form
       if (!newTask.title) return;
       
       const { data, error } = await supabase
@@ -153,7 +143,7 @@ export default function TaskList({ projectId }: { projectId: string }) {
           project_id: projectId,
           title: newTask.title,
           description: newTask.description,
-          assigned_to: newTask.assigned_to || null,
+          assigned_to: newTask.assigned_to === "unassigned" ? null : newTask.assigned_to || null,
           created_by: user.id,
           due_date: newTask.due_date || null,
           priority: newTask.priority,
@@ -164,10 +154,8 @@ export default function TaskList({ projectId }: { projectId: string }) {
       
       if (error) throw error;
       
-      // Add the new task to the list
-      await fetchTasks(); // Refresh the tasks to get the full data
+      await fetchTasks();
       
-      // Reset form
       setNewTask({
         title: '',
         description: '',
@@ -191,7 +179,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
       
       if (error) throw error;
       
-      // Update task list
       setTasks(prev => 
         prev.map(task => task.id === taskId ? { ...task, status: newStatus } : task)
       );
@@ -200,7 +187,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
     }
   }
   
-  // Helper function to get status badge color
   function getStatusBadge(status: string) {
     switch (status) {
       case 'pending':
@@ -216,7 +202,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
     }
   }
   
-  // Helper function to get priority badge
   function getPriorityBadge(priority: string) {
     switch (priority) {
       case 'high':
@@ -230,7 +215,6 @@ export default function TaskList({ projectId }: { projectId: string }) {
     }
   }
   
-  // Helper function to format due date with status
   function formatDueDate(dueDate: string | null) {
     if (!dueDate) return null;
     
@@ -317,7 +301,7 @@ export default function TaskList({ projectId }: { projectId: string }) {
                     <SelectValue placeholder="Select user" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {collaborators.map(user => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.full_name || user.email}
@@ -357,7 +341,10 @@ export default function TaskList({ projectId }: { projectId: string }) {
             </div>
             
             <DialogFooter>
-              <Button onClick={handleSubmitTask} disabled={!newTask.title}>
+              <Button 
+                onClick={handleSubmitTask} 
+                disabled={!newTask.title}
+              >
                 Create Task
               </Button>
             </DialogFooter>
