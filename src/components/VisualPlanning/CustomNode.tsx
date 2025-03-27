@@ -7,7 +7,7 @@ interface CustomNodeData {
   label: string;
 }
 
-// The CustomNode component receives props from ReactFlow via NodeProps generic
+// The CustomNode component receives props from ReactFlow
 const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   return (
     <div
