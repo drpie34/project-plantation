@@ -15,7 +15,15 @@ export default function VisualPlanning() {
 
   useEffect(() => {
     const fetchProject = async () => {
-      if (!projectId) return;
+      if (!projectId) {
+        setLoading(false);
+        toast({
+          title: 'Error',
+          description: 'Project ID is missing',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       try {
         setLoading(true);
@@ -26,6 +34,11 @@ export default function VisualPlanning() {
           .single();
 
         if (error) throw error;
+        
+        if (!data) {
+          throw new Error('Project not found');
+        }
+        
         setProject(data);
       } catch (error: any) {
         console.error('Error fetching project:', error);
@@ -65,10 +78,10 @@ export default function VisualPlanning() {
           <TabsTrigger value="saved">Saved Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="create" className="pt-6">
-          <VisualPlanningTabs projectId={projectId || ''} />
+          <VisualPlanningTabs projectId={projectId} />
         </TabsContent>
         <TabsContent value="saved" className="pt-6">
-          <VisualPlans projectId={projectId || ''} />
+          <VisualPlans projectId={projectId} />
         </TabsContent>
       </Tabs>
     </div>
