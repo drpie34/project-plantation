@@ -1,383 +1,345 @@
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { trackActivity } from '@/utils/apiGateway';
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
-  Input,
-  Badge,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
+  DialogTrigger,
+  DialogFooter
+} from '@/components/ui';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
-} from '@/components/ui';
-import { Search as SearchIcon, UserPlus as UserPlusIcon, X as XIcon } from 'lucide-react';
+} from '@/components/ui/select';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { UserPlus, Users, Trash2, Save, X } from 'lucide-react';
 
-interface CollaboratorUser {
+interface User {
   id: string;
   email: string;
-  full_name: string | null;
-  avatar_url: string | null;
+  full_name?: string;
+  avatar_url?: string;
 }
 
+// Define specific project type for this component
 interface ProjectWithCollaboration {
   id: string;
-  title: string;
   user_id: string;
-  collaborators: string[];
+  title: string;
   is_collaborative: boolean;
+  collaborators: string[];
   collaboration_settings: {
     permissions: 'view' | 'comment' | 'edit';
-  } | null;
+  };
 }
 
 interface ProjectSharingDialogProps {
   project: ProjectWithCollaboration;
-  trigger: React.ReactNode;
-  onUpdate?: (updatedProject: ProjectWithCollaboration) => void;
+  onUpdate: (updatedProject: ProjectWithCollaboration) => void;
+  trigger?: React.ReactNode;
 }
 
-export default function ProjectSharingDialog({ 
-  project, 
-  trigger, 
-  onUpdate 
-}: ProjectSharingDialogProps) {
+export default function ProjectSharingDialog({ project, onUpdate, trigger }: ProjectSharingDialogProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [collaborators, setCollaborators] = useState<CollaboratorUser[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CollaboratorUser[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isCollaborative, setIsCollaborative] = useState(project.is_collaborative);
+  const [collaborators, setCollaborators] = useState<string[]>(project.collaborators || []);
   const [permissions, setPermissions] = useState<'view' | 'comment' | 'edit'>(
     project.collaboration_settings?.permissions || 'view'
   );
-  const [error, setError] = useState<string | null>(null);
-  
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && collaborators.length > 0) {
       fetchCollaborators();
     }
-  }, [isOpen, project.id]);
-  
+  }, [isOpen, collaborators]);
+
   async function fetchCollaborators() {
+    if (collaborators.length === 0) return;
+    
     try {
-      if (!project.collaborators || project.collaborators.length === 0) {
-        setCollaborators([]);
-        return;
-      }
-      
       const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name, avatar_url')
-        .in('id', project.collaborators);
+        .in('id', collaborators);
       
       if (error) throw error;
       
-      setCollaborators(data as CollaboratorUser[] || []);
+      if (data) {
+        // Cast to ensure type safety
+        const typedUsers: User[] = data.map(u => ({
+          id: u.id,
+          email: u.email,
+          full_name: u.full_name || undefined,
+          avatar_url: u.avatar_url || undefined
+        }));
+        setUsers(typedUsers);
+      }
     } catch (error) {
       console.error('Error fetching collaborators:', error);
-      setError('Failed to load collaborators');
     }
   }
-  
-  async function searchUsers() {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
     
     setIsSearching(true);
     
     try {
-      // Search by email or name
       const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name, avatar_url')
-        .or(`email.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
+        .ilike('email', `%${searchQuery}%`)
         .limit(5);
       
       if (error) throw error;
       
-      // Filter out the current user and existing collaborators
-      const filtered = data.filter((user: CollaboratorUser) => 
-        !project.collaborators.includes(user.id) && 
-        user.id !== project.user_id
-      );
-      
-      setSearchResults(filtered as CollaboratorUser[]);
+      if (data) {
+        // Filter out current user and existing collaborators
+        const filteredResults = data.filter(u => 
+          u.id !== user?.id && !collaborators.includes(u.id)
+        );
+        
+        // Cast to ensure type safety
+        const typedUsers: User[] = filteredResults.map(u => ({
+          id: u.id,
+          email: u.email,
+          full_name: u.full_name || undefined,
+          avatar_url: u.avatar_url || undefined
+        }));
+        
+        setSearchResults(typedUsers);
+      }
     } catch (error) {
       console.error('Error searching users:', error);
-      setError('Error searching for users');
     } finally {
       setIsSearching(false);
     }
   }
-  
-  async function addCollaborator(userId: string) {
-    try {
-      // Find user in search results
-      const user = searchResults.find(u => u.id === userId);
-      if (!user) return;
-      
-      // Update project collaborators
-      const updatedCollaborators = [...project.collaborators, userId];
-      
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          is_collaborative: true,
-          collaborators: updatedCollaborators,
-          collaboration_settings: {
-            ...project.collaboration_settings,
-            permissions
-          }
-        })
-        .eq('id', project.id);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setCollaborators(prev => [...prev, user]);
-      setSearchResults(prev => prev.filter(u => u.id !== userId));
-      
-      // Call onUpdate callback
-      if (onUpdate) {
-        onUpdate({
-          ...project,
-          is_collaborative: true,
-          collaborators: updatedCollaborators,
-          collaboration_settings: {
-            ...project.collaboration_settings,
-            permissions
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error adding collaborator:', error);
-      setError('Failed to add collaborator');
-    }
+
+  function addCollaborator(userId: string) {
+    setCollaborators(prev => [...prev, userId]);
+    setSearchResults(prev => prev.filter(u => u.id !== userId));
+    setSearchQuery('');
   }
-  
-  async function removeCollaborator(userId: string) {
-    try {
-      // Update project collaborators
-      const updatedCollaborators = project.collaborators.filter(id => id !== userId);
-      
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          is_collaborative: updatedCollaborators.length > 0,
-          collaborators: updatedCollaborators,
-        })
-        .eq('id', project.id);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setCollaborators(prev => prev.filter(user => user.id !== userId));
-      
-      // Call onUpdate callback
-      if (onUpdate) {
-        onUpdate({
-          ...project,
-          is_collaborative: updatedCollaborators.length > 0,
-          collaborators: updatedCollaborators,
-        });
-      }
-    } catch (error) {
-      console.error('Error removing collaborator:', error);
-      setError('Failed to remove collaborator');
-    }
+
+  function removeCollaborator(userId: string) {
+    setCollaborators(prev => prev.filter(id => id !== userId));
+    setUsers(prev => prev.filter(u => u.id !== userId));
   }
-  
-  async function updatePermissions() {
+
+  async function handleSubmit() {
+    if (!user) return;
+    
+    setIsSaving(true);
+    
     try {
+      const updatedProject: ProjectWithCollaboration = {
+        ...project,
+        is_collaborative: isCollaborative,
+        collaborators: isCollaborative ? collaborators : [],
+        collaboration_settings: {
+          permissions: permissions as 'view' | 'comment' | 'edit'
+        }
+      };
+      
       const { error } = await supabase
         .from('projects')
         .update({
+          is_collaborative: isCollaborative,
+          collaborators: isCollaborative ? collaborators : [],
           collaboration_settings: {
-            ...project.collaboration_settings,
-            permissions
+            permissions: permissions
           }
         })
         .eq('id', project.id);
       
       if (error) throw error;
       
-      // Call onUpdate callback
-      if (onUpdate) {
-        onUpdate({
-          ...project,
-          collaboration_settings: {
-            ...project.collaboration_settings,
-            permissions
-          }
-        });
-      }
+      // Track this activity
+      await trackActivity(
+        user.id,
+        'updated_sharing',
+        'project',
+        project.id,
+        { is_collaborative: isCollaborative, collaborators_count: collaborators.length }
+      );
+      
+      onUpdate(updatedProject);
+      
+      toast({
+        title: 'Success',
+        description: 'Project sharing settings updated',
+      });
       
       setIsOpen(false);
     } catch (error) {
-      console.error('Error updating permissions:', error);
-      setError('Failed to update permissions');
+      console.error('Error updating project sharing:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update sharing settings',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
     }
   }
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        {trigger}
+        {trigger || <Button>Share</Button>}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Share Project</DialogTitle>
-          <DialogDescription>
-            Invite others to collaborate on your project
-          </DialogDescription>
         </DialogHeader>
         
-        {error && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4">
-            {error}
-          </div>
-        )}
-        
-        <div className="space-y-4 py-2">
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search by email or name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
-              className="pl-10 pr-20"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8"
-              onClick={searchUsers}
-              disabled={isSearching || !searchQuery.trim()}
-            >
-              {isSearching ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
-              ) : (
-                'Search'
-              )}
-            </Button>
+        <div className="space-y-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-1 items-center">
+              <Switch 
+                id="collaborative" 
+                checked={isCollaborative}
+                onCheckedChange={setIsCollaborative}
+              />
+              <Label htmlFor="collaborative" className="ml-2">
+                Enable collaboration
+              </Label>
+            </div>
+            <div className="flex items-center gap-1">
+              <Users className="text-gray-500 h-4 w-4" />
+              <span className="text-sm text-gray-500">
+                {collaborators.length} {collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+              </span>
+            </div>
           </div>
           
-          {searchResults.length > 0 && (
-            <div className="border rounded-md divide-y">
-              {searchResults.map(user => (
-                <div key={user.id} className="flex items-center justify-between p-3">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      {user.avatar_url ? (
-                        <AvatarImage src={user.avatar_url} alt={user.full_name || user.email} />
-                      ) : (
-                        <AvatarFallback>{(user.full_name || user.email || "").charAt(0).toUpperCase()}</AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div>
-                      {user.full_name && (
-                        <div className="font-medium">{user.full_name}</div>
-                      )}
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addCollaborator(user.id)}
-                  >
-                    <UserPlusIcon className="h-4 w-4 mr-1" />
-                    Add
+          {isCollaborative && (
+            <>
+              <div>
+                <Label className="mb-1 block">Default permission level</Label>
+                <Select value={permissions} onValueChange={(value: 'view' | 'comment' | 'edit') => setPermissions(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select permissions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="view">View only</SelectItem>
+                    <SelectItem value="comment">Comment</SelectItem>
+                    <SelectItem value="edit">Edit</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This applies to all collaborators unless individually specified
+                </p>
+              </div>
+              
+              <div>
+                <Label className="mb-1 block">Add collaborators</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search by email"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    className="flex-1"
+                  />
+                  <Button type="button" onClick={handleSearch} disabled={isSearching}>
+                    {isSearching ? 'Searching...' : 'Search'}
                   </Button>
                 </div>
-              ))}
-            </div>
-          )}
-          
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium">Collaborators</h4>
-              <Badge variant="outline" className="text-xs">
-                {collaborators.length}
-              </Badge>
-            </div>
-            
-            {collaborators.length === 0 ? (
-              <div className="text-sm text-gray-500 p-3 border border-dashed rounded-md text-center">
-                No collaborators yet
-              </div>
-            ) : (
-              <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
-                {collaborators.map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-3">
-                    <div className="flex items-center">
-                      <Avatar className="h-8 w-8 mr-2">
-                        {user.avatar_url ? (
-                          <AvatarImage src={user.avatar_url} alt={user.full_name || user.email} />
-                        ) : (
-                          <AvatarFallback>{(user.full_name || user.email || "").charAt(0).toUpperCase()}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div>
-                        {user.full_name && (
-                          <div className="font-medium">{user.full_name}</div>
-                        )}
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
+                
+                {searchResults.length > 0 && (
+                  <div className="mt-2 border rounded-md p-2">
+                    <p className="text-xs text-muted-foreground mb-2">Search results:</p>
+                    <div className="space-y-2">
+                      {searchResults.map(user => (
+                        <div key={user.id} className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              {user.avatar_url ? (
+                                <AvatarImage src={user.avatar_url} alt={user.full_name || user.email} />
+                              ) : (
+                                <AvatarFallback>{user.email[0].toUpperCase()}</AvatarFallback>
+                              )}
+                            </Avatar>
+                            <span className="text-sm">{user.full_name || user.email}</span>
+                          </div>
+                          <Button 
+                            type="button" 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => addCollaborator(user.id)}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => removeCollaborator(user.id)}
-                    >
-                      <XIcon className="h-4 w-4" />
-                    </Button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
-          
-          <div className="pt-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Collaborator Permissions
-            </label>
-            <Select
-              value={permissions}
-              onValueChange={(value: 'view' | 'comment' | 'edit') => setPermissions(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select permissions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="view">View only</SelectItem>
-                <SelectItem value="comment">Can comment</SelectItem>
-                <SelectItem value="edit">Can edit</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-gray-500 mt-1">
-              This applies to all collaborators on this project
-            </p>
-          </div>
+              
+              {users.length > 0 && (
+                <div>
+                  <Label className="mb-1 block">Current collaborators</Label>
+                  <div className="border rounded-md p-2 space-y-2">
+                    {users.map(user => (
+                      <div key={user.id} className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            {user.avatar_url ? (
+                              <AvatarImage src={user.avatar_url} alt={user.full_name || user.email} />
+                            ) : (
+                              <AvatarFallback>{user.email[0].toUpperCase()}</AvatarFallback>
+                            )}
+                          </Avatar>
+                          <span className="text-sm">{user.full_name || user.email}</span>
+                        </div>
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => removeCollaborator(user.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
         
         <DialogFooter>
-          <Button onClick={updatePermissions}>
-            Save Settings
+          <Button variant="outline" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save Settings'}
           </Button>
         </DialogFooter>
       </DialogContent>

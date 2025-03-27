@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,16 +28,31 @@ import {
   BarChart,
   FileSearch,
   Users,
-  LayoutGrid as GanttIcon, // Using LayoutGrid as Gantt since Gantt icon isn't in lucide
+  LayoutGrid as GanttIcon,
   MessageSquare
 } from 'lucide-react';
 import { Project, Idea } from '@/types/supabase';
 import ProjectSharingDialog from '@/components/Collaboration/ProjectSharingDialog';
 import CollaborationTabs from '@/components/Collaboration/CollaborationTabs';
 
+interface ProjectWithCollaboration {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  stage: 'ideation' | 'planning' | 'development' | 'launched';
+  created_at: string;
+  updated_at: string;
+  is_collaborative: boolean;
+  collaborators: string[];
+  collaboration_settings: {
+    permissions: 'view' | 'comment' | 'edit';
+  };
+}
+
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [project, setProject] = useState<Project | null>(null);
+  const [project, setProject] = useState<ProjectWithCollaboration | null>(null);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -64,8 +78,7 @@ export default function ProjectDetail() {
 
       if (error) throw error;
       
-      // Cast the data to ensure it matches the Project type
-      const projectData: Project = {
+      const projectData: ProjectWithCollaboration = {
         id: data.id,
         user_id: data.user_id,
         title: data.title,
@@ -75,7 +88,9 @@ export default function ProjectDetail() {
         updated_at: data.updated_at,
         is_collaborative: data.is_collaborative || false,
         collaborators: data.collaborators || [],
-        collaboration_settings: data.collaboration_settings || { permissions: 'view' }
+        collaboration_settings: data.collaboration_settings 
+          ? { permissions: (data.collaboration_settings as any).permissions as 'view' | 'comment' | 'edit' } 
+          : { permissions: 'view' }
       };
       
       setProject(projectData);
@@ -101,25 +116,28 @@ export default function ProjectDetail() {
 
       if (error) throw error;
       
-      // Cast the data to ensure it matches the Idea type
-      const ideasData: Idea[] = data.map(item => ({
-        id: item.id,
-        project_id: item.project_id,
-        title: item.title,
-        description: item.description || null,
-        target_audience: item.target_audience || null,
-        problem_solved: item.problem_solved || null,
-        ai_generated_data: item.ai_generated_data || null,
-        created_at: item.created_at,
-        status: item.status as 'draft' | 'developing' | 'ready' | 'archived',
-        tags: item.tags || [],
-        inspiration_sources: item.inspiration_sources || {},
-        collaboration_settings: item.collaboration_settings || { visibility: 'private' },
-        version: item.version,
-        version_history: item.version_history || []
-      }));
-      
-      setIdeas(ideasData);
+      if (data) {
+        const ideasData: Idea[] = data.map(item => ({
+          id: item.id,
+          project_id: item.project_id,
+          title: item.title,
+          description: item.description || null,
+          target_audience: item.target_audience || null,
+          problem_solved: item.problem_solved || null,
+          ai_generated_data: item.ai_generated_data,
+          created_at: item.created_at,
+          status: item.status as 'draft' | 'developing' | 'ready' | 'archived',
+          tags: item.tags || [],
+          inspiration_sources: (item.inspiration_sources || {}) as Record<string, any>,
+          collaboration_settings: (item.collaboration_settings || { visibility: 'private' }) as { 
+            visibility: 'private' | 'team' | 'public' 
+          },
+          version: item.version || 1,
+          version_history: (item.version_history || []) as Record<string, any>[]
+        }));
+        
+        setIdeas(ideasData);
+      }
     } catch (error: any) {
       console.error('Error fetching ideas:', error);
     }
@@ -145,7 +163,6 @@ export default function ProjectDetail() {
     );
   }
 
-  // Get formatted stage display
   const getStageDisplay = (stage: string) => {
     switch (stage) {
       case 'ideation':
@@ -161,7 +178,7 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleProjectUpdate = (updatedProject: Project) => {
+  const handleProjectUpdate = (updatedProject: ProjectWithCollaboration) => {
     setProject(updatedProject);
   };
 
@@ -179,8 +196,8 @@ export default function ProjectDetail() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold flex items-center">
-              {project.title}
-              {project.is_collaborative && (
+              {project?.title}
+              {project?.is_collaborative && (
                 <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
                   <Users className="h-3 w-3 mr-1" />
                   Collaborative
@@ -188,24 +205,26 @@ export default function ProjectDetail() {
               )}
             </h1>
             <div className="flex items-center gap-2 text-muted-foreground">
-              {getStageDisplay(project.stage)}
+              {project && getStageDisplay(project.stage)}
               <span>•</span>
-              <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
+              <span>Created {project && new Date(project.created_at).toLocaleDateString()}</span>
             </div>
           </div>
         </div>
 
         <div className="flex gap-2">
-          <ProjectSharingDialog 
-            project={project} 
-            onUpdate={handleProjectUpdate}
-            trigger={
-              <Button variant="outline">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-            }
-          />
+          {project && (
+            <ProjectSharingDialog 
+              project={project} 
+              onUpdate={handleProjectUpdate}
+              trigger={
+                <Button variant="outline">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+              }
+            />
+          )}
           <Button 
             variant="default" 
             onClick={() => navigate(`/projects/${projectId}/generate-ideas`)}

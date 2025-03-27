@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,15 +64,27 @@ export default function NewIdeaDialog({ isOpen, onClose, onCreate, categories }:
       
       if (error) throw error;
       
-      // Type assertion to ensure the data conforms to Project[]
-      const typedProjects = data?.map(project => ({
-        ...project,
-        stage: project.stage as "ideation" | "planning" | "development" | "launched"
-      })) || [];
-      
-      setProjects(typedProjects);
-      if (typedProjects.length > 0) {
-        setSelectedProject(typedProjects[0].id);
+      // Process the projects to ensure they match the Project type
+      if (data) {
+        const typedProjects: Project[] = data.map(project => ({
+          id: project.id,
+          user_id: project.user_id,
+          title: project.title,
+          description: project.description || null,
+          stage: project.stage as "ideation" | "planning" | "development" | "launched",
+          created_at: project.created_at,
+          updated_at: project.updated_at,
+          is_collaborative: project.is_collaborative || false,
+          collaborators: project.collaborators || [],
+          collaboration_settings: project.collaboration_settings 
+            ? { permissions: (project.collaboration_settings as any).permissions as "view" | "comment" | "edit" } 
+            : { permissions: "view" }
+        }));
+        
+        setProjects(typedProjects);
+        if (typedProjects.length > 0) {
+          setSelectedProject(typedProjects[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
