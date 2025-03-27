@@ -1,8 +1,8 @@
 
 import { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeProps } from '@xyflow/react';
 
-interface CustomNodeProps {
+interface CustomNodeProps extends NodeProps {
   data: { label: string };
   isConnectable?: boolean;
   selected?: boolean;

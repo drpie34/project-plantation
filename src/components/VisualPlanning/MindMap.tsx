@@ -11,7 +11,9 @@ import {
   Panel,
   Connection,
   Edge,
-  Node
+  Node,
+  NodeChange,
+  EdgeChange
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -29,21 +31,15 @@ import {
 
 import CustomNode from './CustomNode';
 
-// Node and edge types for the mind map
-interface MindMapNode extends Node {
-  type: string;
-  data: { label: string };
-}
-
-// Register custom node types
+// Node types for the mind map
 const nodeTypes = {
   custom: CustomNode
 };
 
 interface MindMapProps {
-  initialNodes?: MindMapNode[];
+  initialNodes?: Node[];
   initialEdges?: Edge[];
-  onSave?: (data: { nodes: MindMapNode[]; edges: Edge[] }) => void;
+  onSave?: (data: { nodes: Node[]; edges: Edge[] }) => void;
   readOnly?: boolean;
 }
 
@@ -55,7 +51,7 @@ export default function MindMap({
 }: MindMapProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode] = useState<MindMapNode | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newNodeText, setNewNodeText] = useState('');
   
@@ -65,7 +61,7 @@ export default function MindMap({
   };
   
   // Handle node selection
-  const onNodeClick = (_: React.MouseEvent, node: MindMapNode) => {
+  const onNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   };
   
@@ -74,7 +70,7 @@ export default function MindMap({
     if (!selectedNode || !newNodeText) return;
     
     // Create a new node
-    const newNode: MindMapNode = {
+    const newNode: Node = {
       id: `node-${Date.now()}`,
       type: 'custom',
       data: { label: newNodeText },
