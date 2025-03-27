@@ -1,10 +1,8 @@
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { 
   Card, 
   CardHeader, 
@@ -15,16 +13,23 @@ import {
 import { AIModelIndicator } from '@/components/AIModelIndicator';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useMarketResearch } from '@/hooks/useMarketResearch';
 
 export default function MarketResearch() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [query, setQuery] = useState<string>('');
-  const [result, setResult] = useState<any>(null);
+  
+  const {
+    conductResearch,
+    isLoading,
+    result,
+    creditsRemaining,
+    reset
+  } = useMarketResearch(projectId || '');
   
   const handleResearch = async () => {
     if (!query.trim()) {
@@ -36,50 +41,19 @@ export default function MarketResearch() {
       return;
     }
     
-    setIsLoading(true);
-    
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-research`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          userId: user?.id,
-          projectId,
-          query,
-          source: 'custom'
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Error conducting market research');
-      }
-      
-      setResult({
-        id: data.research.id,
-        content: data.research.ai_analysis,
-        model: data.research.model_used,
-        webSearch: data.research.raw_data?.webSearch
-      });
+      await conductResearch(query);
       
       toast({
         title: 'Research completed',
-        description: `Research generated with ${data.research.model_used}. ${data.credits_remaining} credits remaining.`,
+        description: `Research generated successfully. ${creditsRemaining} credits remaining.`,
       });
-      
     } catch (error: any) {
-      console.error('Error:', error);
       toast({
         title: 'Research failed',
         description: error.message || 'Failed to conduct market research',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -153,7 +127,7 @@ export default function MarketResearch() {
               </div>
               
               <div className="mt-6 flex justify-end">
-                <Button variant="outline" onClick={() => setResult(null)}>
+                <Button variant="outline" onClick={() => reset()}>
                   Conduct New Research
                 </Button>
               </div>

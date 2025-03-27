@@ -65,9 +65,6 @@ export async function createProject({
 
     if (error) throw error;
     
-    // If we have an idea ID, we could potentially link it to the project here
-    // This would require a project_ideas table or similar
-
     return data;
   } catch (error) {
     console.error('Error creating project:', error);

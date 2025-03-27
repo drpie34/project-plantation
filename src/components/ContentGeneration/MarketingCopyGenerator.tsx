@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardHeader,
@@ -27,7 +28,7 @@ import {
 import { Copy as CopyIcon, Save as SaveIcon, Sparkles as SparklesIcon } from 'lucide-react';
 import { AIModelIndicator } from '@/components/AIModelIndicator';
 import { useToast } from '@/hooks/use-toast';
-import { callApiGateway } from '@/utils/apiGateway';
+import { useMarketingCopy } from '@/hooks/useMarketingCopy';
 
 interface MarketingCopyGeneratorProps {
   projectId: string;
@@ -45,17 +46,6 @@ interface FormData {
   keyFeatures: string;
   tonality: Tonality;
   contentType: ContentType;
-}
-
-interface GeneratedContent {
-  text: string;
-  model: string;
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    model: string;
-    api: string;
-  };
 }
 
 const contentTypes = [
@@ -78,9 +68,6 @@ export default function MarketingCopyGenerator({
   userId, 
   creditsRemaining 
 }: MarketingCopyGeneratorProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [activeTab, setActiveTab] = useState<ContentType>('landing');
   const [formData, setFormData] = useState<FormData>({
     productName: '',
@@ -90,292 +77,290 @@ export default function MarketingCopyGenerator({
     tonality: 'professional',
     contentType: 'landing'
   });
+  const [saveTitle, setSaveTitle] = useState('');
+  const [showSaveForm, setShowSaveForm] = useState(false);
   
   const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  const { 
+    generateCopy, 
+    saveCopy, 
+    isLoading, 
+    error, 
+    generatedContent,
+    reset
+  } = useMarketingCopy(projectId);
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+  
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'contentType') {
+      setActiveTab(value as ContentType);
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.productName || !formData.description) {
-      setError('Please fill in the required fields');
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const result = await callApiGateway('generateMarketingCopy', {
-        userId,
-        projectId,
-        ...formData
-      });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error generating marketing copy');
+      if (creditsRemaining < 5) {
+        toast({
+          title: 'Insufficient Credits',
+          description: 'You need at least 5 credits to generate marketing copy',
+          variant: 'destructive',
+        });
+        return;
       }
       
-      setGeneratedContent(result.content);
-      toast({
-        title: "Marketing copy generated",
-        description: "Your marketing copy has been successfully generated",
+      await generateCopy({
+        ...formData,
+        contentType: activeTab
       });
       
-    } catch (error: any) {
-      console.error('Error:', error);
-      setError(error.message || 'An unexpected error occurred');
       toast({
-        title: "Generation failed",
-        description: error.message || 'Failed to generate marketing copy',
-        variant: "destructive"
+        title: 'Marketing Copy Generated',
+        description: 'Your marketing copy has been generated successfully',
       });
-    } finally {
-      setIsLoading(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate marketing copy',
+        variant: 'destructive',
+      });
     }
   };
   
-  const handleCopy = () => {
+  const handleCopyToClipboard = () => {
     if (generatedContent) {
       navigator.clipboard.writeText(generatedContent.text);
       toast({
-        title: "Copied to clipboard",
-        description: "The marketing copy has been copied to your clipboard",
+        title: 'Copied to clipboard',
+        description: 'The content has been copied to your clipboard',
       });
     }
   };
   
   const handleSave = async () => {
-    if (!generatedContent) return;
+    if (!saveTitle.trim()) {
+      toast({
+        title: 'Title required',
+        description: 'Please provide a title for your marketing copy',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
-      const result = await callApiGateway('saveMarketingCopy', {
-        userId,
-        projectId,
-        contentType: formData.contentType,
-        title: `${formData.productName} - ${contentTypes.find(t => t.value === formData.contentType)?.label}`,
-        content: generatedContent
-      });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error saving content');
-      }
+      await saveCopy(saveTitle);
       
       toast({
-        title: "Content saved",
-        description: "Your marketing copy has been saved to the project",
+        title: 'Saved',
+        description: 'Your marketing copy has been saved successfully',
       });
       
+      setShowSaveForm(false);
+      setSaveTitle('');
     } catch (error: any) {
-      console.error('Error:', error);
       toast({
-        title: "Save failed",
+        title: 'Error',
         description: error.message || 'Failed to save marketing copy',
-        variant: "destructive"
+        variant: 'destructive',
       });
     }
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleContentTypeChange = (value: ContentType) => {
-    setFormData(prev => ({ ...prev, contentType: value }));
-    setActiveTab(value);
-  };
-  
-  const handleTonalityChange = (value: Tonality) => {
-    setFormData(prev => ({ ...prev, tonality: value }));
-  };
-  
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Marketing Copy Generator</CardTitle>
-          <CardDescription>
-            Use AI to generate compelling marketing copy for your SaaS product
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Product Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  name="productName"
-                  value={formData.productName}
-                  onChange={handleInputChange}
-                  placeholder="E.g., TaskFlow Pro"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Target Audience
-                </label>
-                <Input
-                  name="targetAudience"
-                  value={formData.targetAudience}
-                  onChange={handleInputChange}
-                  placeholder="E.g., Small business owners, Marketing teams"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Product Description <span className="text-red-500">*</span>
-              </label>
-              <Textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Describe your product and its main value proposition"
-                rows={3}
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Key Features & Benefits
-              </label>
-              <Textarea
-                name="keyFeatures"
-                value={formData.keyFeatures}
-                onChange={handleInputChange}
-                placeholder="List the main features and benefits (one per line)"
-                rows={3}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Separate each feature/benefit with a new line
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Content Type
-                </label>
-                <Select
-                  value={formData.contentType}
-                  onValueChange={(value) => handleContentTypeChange(value as ContentType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select content type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contentTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Tone of Voice
-                </label>
-                <Select
-                  value={formData.tonality}
-                  onValueChange={(value) => handleTonalityChange(value as Tonality)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tonalities.map(tone => (
-                      <SelectItem key={tone.value} value={tone.value}>
-                        {tone.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            {error && (
-              <div className="text-red-500 text-sm">{error}</div>
-            )}
-            
-            <div className="flex justify-between items-center pt-2">
-              <div className="text-sm text-gray-500">
-                Credits available: {creditsRemaining}
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading || !formData.productName || !formData.description}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon className="h-4 w-4 mr-2" />
-                    Generate Copy
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      
-      {generatedContent && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Generated Marketing Copy</CardTitle>
-                <CardDescription>
-                  {contentTypes.find(t => t.value === formData.contentType)?.label} for {formData.productName}
-                </CardDescription>
-              </div>
-              <AIModelIndicator model={generatedContent.model} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)}>
-              <TabsList className="mb-4">
-                {contentTypes.map(type => (
-                  <TabsTrigger key={type.value} value={type.value}>
-                    {type.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              {contentTypes.map(type => (
-                <TabsContent key={type.value} value={type.value} className="space-y-4">
-                  <div className="prose max-w-none">
-                    <div dangerouslySetInnerHTML={{ 
-                      __html: generatedContent.text.replace(/\n/g, '<br />') 
-                    }} />
+      <Tabs defaultValue="landing" value={activeTab} onValueChange={(v) => setActiveTab(v as ContentType)}>
+        <TabsList className="grid grid-cols-4 mb-4">
+          {contentTypes.map((type) => (
+            <TabsTrigger
+              key={type.value}
+              value={type.value}
+              onClick={() => handleSelectChange('contentType', type.value)}
+            >
+              {type.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        
+        {!generatedContent ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Generate {activeTab === 'landing' ? 'Landing Page Copy' : 
+                             activeTab === 'email' ? 'Email Campaign Copy' :
+                             activeTab === 'social' ? 'Social Media Posts' : 'Ad Copy'}</CardTitle>
+              <CardDescription>
+                Fill in the details about your product to generate compelling copy
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Product Name *</label>
+                  <Input
+                    name="productName"
+                    value={formData.productName}
+                    onChange={handleInputChange}
+                    placeholder="e.g., TaskMaster Pro"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Product Description *</label>
+                  <Textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Briefly describe your product and its main value proposition"
+                    rows={3}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Target Audience</label>
+                  <Input
+                    name="targetAudience"
+                    value={formData.targetAudience}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Small business owners, freelancers, etc."
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Key Features & Benefits</label>
+                  <Textarea
+                    name="keyFeatures"
+                    value={formData.keyFeatures}
+                    onChange={handleInputChange}
+                    placeholder="List the key features and benefits of your product (one per line)"
+                    rows={3}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tone</label>
+                  <Select 
+                    value={formData.tonality}
+                    onValueChange={(value) => handleSelectChange('tonality', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tonalities.map((tone) => (
+                        <SelectItem key={tone.value} value={tone.value}>
+                          {tone.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex justify-between items-center pt-2">
+                  <div className="text-sm text-gray-500">
+                    Cost: 5 credits (You have {creditsRemaining} credits)
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-          <CardFooter className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={handleCopy}>
-              <CopyIcon className="h-4 w-4 mr-2" />
-              Copy
-            </Button>
-            <Button onClick={handleSave}>
-              <SaveIcon className="h-4 w-4 mr-2" />
-              Save to Project
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading || creditsRemaining < 5}
+                    className="flex items-center"
+                  >
+                    {isLoading ? 'Generating...' : (
+                      <>
+                        <SparklesIcon className="mr-2 h-4 w-4" />
+                        Generate Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Generated {
+                  activeTab === 'landing' ? 'Landing Page' : 
+                  activeTab === 'email' ? 'Email' :
+                  activeTab === 'social' ? 'Social Media' : 'Ad'
+                } Copy</CardTitle>
+                <AIModelIndicator model={generatedContent.model} />
+              </div>
+              <CardDescription>
+                Here's your AI-generated copy
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap mb-4 min-h-[300px]">
+                {generatedContent.text}
+              </div>
+              
+              {showSaveForm && (
+                <div className="bg-blue-50 p-4 rounded-md mb-4 border border-blue-100">
+                  <h3 className="font-medium mb-2">Save this copy</h3>
+                  <div className="flex space-x-2">
+                    <Input
+                      value={saveTitle}
+                      onChange={(e) => setSaveTitle(e.target.value)}
+                      placeholder="Enter a title for this copy"
+                      className="bg-white"
+                    />
+                    <Button onClick={handleSave} variant="outline">
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex space-x-3 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={handleCopyToClipboard}
+                  className="flex items-center"
+                >
+                  <CopyIcon className="mr-2 h-4 w-4" />
+                  Copy to Clipboard
+                </Button>
+                
+                {!showSaveForm ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSaveForm(true)}
+                    className="flex items-center"
+                  >
+                    <SaveIcon className="mr-2 h-4 w-4" />
+                    Save Copy
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSaveForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                
+                <Button
+                  variant="ghost"
+                  onClick={() => reset()}
+                >
+                  Generate new copy
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </Tabs>
     </div>
   );
 }

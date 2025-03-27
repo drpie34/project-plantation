@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -22,25 +21,24 @@ import { AIModelIndicator } from '@/components/AIModelIndicator';
 import { ExtendedThinkingDisplay } from '@/components/ExtendedThinkingDisplay';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
-interface AnalysisResult {
-  id: string;
-  content: string;
-  model: string;
-  extendedThinking: boolean;
-  thinking?: string;
-}
+import { useDocumentAnalysis } from '@/hooks/useDocumentAnalysis';
 
 export default function DocumentAnalysis() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [documentContent, setDocumentContent] = useState<string>('');
-  const [analysisType, setAnalysisType] = useState<string>('requirements');
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [analysisType, setAnalysisType] = useState<'requirements' | 'competitive' | 'general'>('requirements');
+  
+  const { 
+    analyzeContent, 
+    isLoading, 
+    result, 
+    creditsRemaining,
+    reset 
+  } = useDocumentAnalysis(projectId || '');
   
   const handleAnalyze = async () => {
     if (!documentContent.trim()) {
@@ -52,45 +50,19 @@ export default function DocumentAnalysis() {
       return;
     }
     
-    setIsLoading(true);
-    
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/document-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          userId: user?.id,
-          projectId,
-          documentContent,
-          analysisType
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Error analyzing document');
-      }
-      
-      setResult(data.analysis);
+      await analyzeContent(documentContent, analysisType);
       
       toast({
         title: 'Analysis completed',
-        description: `Analysis generated with ${data.analysis.model}. ${data.credits_remaining} credits remaining.`,
+        description: `Analysis generated successfully. ${creditsRemaining} credits remaining.`,
       });
-      
     } catch (error: any) {
-      console.error('Error:', error);
       toast({
         title: 'Analysis failed',
         description: error.message || 'Failed to analyze document',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -123,7 +95,7 @@ export default function DocumentAnalysis() {
                 </label>
                 <Select 
                   value={analysisType}
-                  onValueChange={setAnalysisType}
+                  onValueChange={(value) => setAnalysisType(value as 'requirements' | 'competitive' | 'general')}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select type" />
@@ -187,7 +159,7 @@ export default function DocumentAnalysis() {
               </div>
               
               <div className="mt-6 flex justify-end">
-                <Button variant="outline" onClick={() => setResult(null)}>
+                <Button variant="outline" onClick={() => reset()}>
                   Analyze Another Document
                 </Button>
               </div>

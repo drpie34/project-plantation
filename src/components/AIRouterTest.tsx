@@ -9,9 +9,19 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
+interface AIResponse {
+  content: string;
+  usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    creditCost?: number;
+  };
+}
+
 export function AIRouterTest() {
   const [prompt, setPrompt] = useState('Hello AI Router! How are you today?');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<AIResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const { profile } = useAuth();
   const userTier = profile?.subscription_tier || 'free';
@@ -20,7 +30,7 @@ export function AIRouterTest() {
   const testAIRouter = async () => {
     setLoading(true);
     try {
-      const result = await callApiGateway('check-ai-router', {
+      const result = await callApiGateway<AIResponse>('check-ai-router', {
         task: 'basicChat',
         content: prompt,
         userTier: userTier,

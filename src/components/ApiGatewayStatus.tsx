@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 // Define the type for the API response
 interface ApiGatewayResponse {
@@ -21,7 +22,7 @@ export function ApiGatewayStatus() {
   const checkApiGateway = async () => {
     setLoading(true);
     try {
-      const result = await callApiGateway('check-status') as ApiGatewayResponse;
+      const result = await callApiGateway<ApiGatewayResponse>('check-status');
       setStatus(result);
       toast({
         title: 'API Gateway Check',
