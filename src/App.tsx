@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import NewProject from "./pages/NewProject";
 import ProjectDetail from "./pages/ProjectDetail";
+import IdeaDetail from "./pages/IdeaDetail";
 import GenerateIdeas from "./pages/GenerateIdeas";
 import ProjectPlanning from "./pages/ProjectPlanning";
 import MarketResearch from "./pages/MarketResearch";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/projects/new" element={<NewProject />} />
               <Route path="/projects/formation" element={<ProjectFormation />} />
               <Route path="/projects/:projectId" element={<ProjectDetail />} />
+              <Route path="/projects/:projectId/ideas/:ideaId" element={<IdeaDetail />} />
               <Route path="/projects/:projectId/generate-ideas" element={<GenerateIdeas />} />
               <Route path="/projects/:projectId/planning" element={<ProjectPlanning />} />
               <Route path="/projects/:projectId/market-research" element={<MarketResearch />} />

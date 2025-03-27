@@ -349,7 +349,11 @@ export default function ProjectDetail() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {ideas.map((idea) => (
-                <Card key={idea.id} className="overflow-hidden">
+                <Card 
+                  key={idea.id} 
+                  className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/projects/${projectId}/ideas/${idea.id}`)}
+                >
                   <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{idea.title}</CardTitle>
