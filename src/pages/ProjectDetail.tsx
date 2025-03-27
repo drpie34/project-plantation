@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { Lightbulb, ArrowRight } from 'lucide-react';
+import { Lightbulb, ArrowRight, Map, BarChart2 } from 'lucide-react';
 
 export default function ProjectDetail() {
   const { projectId } = useParams();
@@ -153,6 +153,26 @@ export default function ProjectDetail() {
             <Button asChild className="w-full">
               <Link to={`/projects/${projectId}/document-analysis`}>
                 Analyze Documents
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Map className="h-5 w-5" />
+              Visual Planning
+            </CardTitle>
+            <CardDescription>Create mind maps & Gantt charts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm mb-4">
+              Visually plan your project with interactive mind maps and Gantt charts.
+            </p>
+            <Button asChild className="w-full">
+              <Link to={`/projects/${projectId}/visual-planning`}>
+                Visual Planning
               </Link>
             </Button>
           </CardContent>
