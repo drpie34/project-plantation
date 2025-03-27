@@ -91,7 +91,7 @@ const GenerateIdeas = () => {
     setIsLoading(true);
 
     try {
-      // Prepare the prompt for idea generation
+      // Prepare the prompt for idea generation with improved formatting instructions
       const prompt = `Generate 3 innovative SaaS ideas for the ${industry} industry.
       ${interests ? `Focus areas or interests: ${interests}` : ''}
       
@@ -103,9 +103,29 @@ const GenerateIdeas = () => {
       5. 3-5 key features
       6. A potential revenue model
       
-      Format each idea with clear headers like:
+      Format each idea EXACTLY with these headers:
       
       ## Idea 1: [TITLE]
+      Description: [DESCRIPTION]
+      Target Audience: [TARGET]
+      Problem: [PROBLEM]
+      Key Features:
+      - [FEATURE 1]
+      - [FEATURE 2]
+      - [FEATURE 3]
+      Revenue Model: [REVENUE MODEL]
+      
+      ## Idea 2: [TITLE]
+      Description: [DESCRIPTION]
+      Target Audience: [TARGET]
+      Problem: [PROBLEM]
+      Key Features:
+      - [FEATURE 1]
+      - [FEATURE 2]
+      - [FEATURE 3]
+      Revenue Model: [REVENUE MODEL]
+      
+      ## Idea 3: [TITLE]
       Description: [DESCRIPTION]
       Target Audience: [TARGET]
       Problem: [PROBLEM]
@@ -123,8 +143,8 @@ const GenerateIdeas = () => {
         content: prompt,
         userTier: profile.subscription_tier || 'free',
         options: {
-          systemPrompt: 'You are an expert in SaaS business models and startup ideas. Generate innovative, practical SaaS ideas based on the industry specified. Format your response with clear section headers.',
-          temperature: 0.8
+          systemPrompt: 'You are an expert in SaaS business models and startup ideas. Generate innovative, practical SaaS ideas based on the industry specified. Follow the exact formatting instructions provided by the user.',
+          temperature: 0.7
         }
       });
       
@@ -136,7 +156,10 @@ const GenerateIdeas = () => {
       
       // Improved parser for AI-generated ideas
       const parseIdeas = (content: string) => {
-        // Split by idea sections (assuming ## Idea X: format)
+        // Log the raw content for debugging
+        console.log("Raw AI content to parse:", content);
+        
+        // First try to split by "## Idea X:" format
         const ideaSections = content.split(/##\s*Idea\s*\d+\s*:/i).filter(Boolean);
         
         if (ideaSections.length === 0) {
@@ -145,56 +168,103 @@ const GenerateIdeas = () => {
           if (alternativeSections.length > 0) {
             return alternativeSections.map(parseIdeaSection);
           }
+          
+          // As a last resort, try to split by double newlines
+          const paragraphs = content.split(/\n\n+/).filter(section => 
+            section.trim().length > 10 && 
+            !section.toLowerCase().includes('here are') && 
+            !section.toLowerCase().includes('below are')
+          );
+          
+          if (paragraphs.length > 0) {
+            return paragraphs.map(parseIdeaSection);
+          }
         }
         
         return ideaSections.map(parseIdeaSection);
       };
       
       const parseIdeaSection = (section: string) => {
-        // Extract title - should be at the beginning of the section
-        const titleMatch = section.match(/^\s*([^\n]+)/);
+        // Log the raw section for debugging
+        console.log("Parsing section:", section);
+        
+        // Extract title - now with more flexible regex
+        const titleMatch = section.match(/^\s*([^\n]+)/) || 
+                          section.match(/\s*([^:\n]+)/) || 
+                          section.match(/\[([^\]]+)\]/);
         const title = titleMatch ? titleMatch[1].trim() : 'Untitled Idea';
         
-        // Extract description - look for Description: or a paragraph following the title
+        // Extract description with better fallbacks
         const descMatch = section.match(/Description\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i) || 
-                          section.match(/(?:^|\n)\s*(?!Description|Target|Problem|Key Features|Revenue)([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Target|$)/i);
+                          section.match(/([^\n]+)(?=\n\s*Target|$)/i) ||
+                          section.match(/:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*[A-Z]|$)/i);
         const description = descMatch ? descMatch[1].trim() : '';
         
-        // Extract target audience
-        const targetMatch = section.match(/Target\s*Audience\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
+        // Extract target audience with improved pattern matching
+        const targetMatch = section.match(/Target\s*Audience\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i) ||
+                           section.match(/Target\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i) ||
+                           section.match(/For\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Problem|$)/i);
         const targetAudience = targetMatch ? targetMatch[1].trim() : '';
         
-        // Extract problem solved
-        const problemMatch = section.match(/Problem\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
+        // Extract problem solved with multiple pattern matching
+        const problemMatch = section.match(/Problem\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i) ||
+                            section.match(/Problem\s*Solved\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i) ||
+                            section.match(/Pain\s*Point\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Key Features|$)/i);
         const problemSolved = problemMatch ? problemMatch[1].trim() : '';
         
-        // Extract features - look for list items after "Key Features:"
-        const featuresMatch = section.match(/Key Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i);
+        // Extract features with enhanced pattern matching
+        const featuresMatch = section.match(/Key Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i) ||
+                             section.match(/Features\s*:([^\n]*(?:\n\s*[-*•]?[^\n]*)*?)(?=\n\s*Revenue|$)/i);
         let features: string[] = [];
         
         if (featuresMatch) {
-          // Extract list items (with - * or •)
-          features = featuresMatch[1].split(/\n\s*[-*•]/).map(f => f.trim()).filter(Boolean);
-          // If no list markers found, try to split by numbered items or newlines
-          if (features.length <= 1) {
-            features = featuresMatch[1].split(/\n\s*\d+\.|\n+/).map(f => f.trim()).filter(Boolean);
+          // Try to extract list items with various markers
+          const featureText = featuresMatch[1];
+          
+          // First check for bulleted list items
+          const bulletedItems = featureText.match(/\n\s*[-*•]\s*([^\n]+)/g);
+          if (bulletedItems && bulletedItems.length > 0) {
+            features = bulletedItems.map(item => item.replace(/\n\s*[-*•]\s*/, '').trim()).filter(Boolean);
+          } else {
+            // Try numbered list items
+            const numberedItems = featureText.match(/\n\s*\d+\.\s*([^\n]+)/g);
+            if (numberedItems && numberedItems.length > 0) {
+              features = numberedItems.map(item => item.replace(/\n\s*\d+\.\s*/, '').trim()).filter(Boolean);
+            } else {
+              // Fall back to splitting by newlines
+              features = featureText.split('\n').map(f => f.trim()).filter(Boolean);
+            }
+          }
+        }
+        
+        // If no features were found and there's a list later in the text, try to extract it
+        if (features.length === 0) {
+          const listItems = section.match(/\n\s*[-*•]\s*([^\n]+)/g);
+          if (listItems && listItems.length > 0) {
+            features = listItems.map(item => item.replace(/\n\s*[-*•]\s*/, '').trim()).filter(Boolean);
           }
         }
         
         // Extract revenue model
-        const revenueMatch = section.match(/Revenue\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i);
+        const revenueMatch = section.match(/Revenue\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i) ||
+                            section.match(/Monetization\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i) ||
+                            section.match(/Business\s*Model\s*:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*##|$)/i);
         const revenueModel = revenueMatch ? revenueMatch[1].trim() : '';
         
-        return {
-          title,
-          description,
-          target_audience: targetAudience,
-          problem_solved: problemSolved,
+        // Create the result object
+        const result = {
+          title: title || 'Untitled Idea',
+          description: description || 'No description provided',
+          target_audience: targetAudience || 'Not specified',
+          problem_solved: problemSolved || 'Not specified',
           ai_generated_data: {
-            key_features: features,
-            revenue_model: revenueModel
+            key_features: features.length > 0 ? features : ['Not specified'],
+            revenue_model: revenueModel || 'Not specified'
           }
         };
+        
+        console.log("Parsed result:", result);
+        return result;
       };
       
       const parsedIdeas = parseIdeas(result.content);
@@ -202,7 +272,53 @@ const GenerateIdeas = () => {
       console.log("Parsed ideas:", parsedIdeas);
       
       if (parsedIdeas.length === 0) {
-        throw new Error('Failed to parse AI-generated ideas');
+        // Create a single fallback idea with the full content
+        console.log("Parsing failed, creating fallback idea with raw content");
+        
+        await supabase
+          .from('ideas')
+          .insert({
+            project_id: projectId,
+            title: 'AI Generated Ideas (Raw)',
+            description: 'The parser could not structure this content. Here is the raw output:',
+            target_audience: '',
+            problem_solved: '',
+            ai_generated_data: {
+              raw_content: result.content,
+              parsing_failed: true
+            }
+          });
+          
+        toast({
+          title: 'Partial Success',
+          description: 'Ideas generated but could not be fully structured. Saved raw output.',
+          variant: 'warning',
+        });
+        
+        // Log API usage
+        await supabase
+          .from('api_usage')
+          .insert({
+            user_id: user.id,
+            api_type: result.usage.api,
+            model_used: result.usage.model,
+            tokens_input: result.usage.inputTokens,
+            tokens_output: result.usage.outputTokens,
+            credits_used: result.usage.creditCost || 5,
+            timestamp: new Date().toISOString()
+          });
+        
+        // Update user credits
+        const creditCost = result.usage.creditCost || 5;
+        await supabase
+          .from('users')
+          .update({ 
+            credits_remaining: profile.credits_remaining - creditCost 
+          })
+          .eq('id', user.id);
+        
+        navigate(`/projects/${projectId}`);
+        return;
       }
       
       // Store ideas in the database
@@ -246,7 +362,7 @@ const GenerateIdeas = () => {
       
       toast({
         title: 'Success',
-        description: 'Ideas generated successfully',
+        description: `${parsedIdeas.length} ideas generated successfully`,
       });
       
       navigate(`/projects/${projectId}`);
