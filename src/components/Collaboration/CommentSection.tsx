@@ -42,7 +42,7 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [usersMap, setUsersMap] = useState<Record<string, User>>({});
+  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const { toast } = useToast();
   
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
         if (userError) throw userError;
         
         // Create a map of user IDs to user data
-        const usersMapData = userData.reduce((acc: Record<string, User>, user: User) => {
+        const usersMapData = userData.reduce((acc: Record<string, any>, user: any) => {
           acc[user.id] = user;
           return acc;
         }, {});
@@ -148,16 +148,12 @@ export default function CommentSection({ entityType, entityId }: CommentSectionP
     }
   }
   
-  function getUserInfo(userId: string): User {
+  function getUserInfo(userId: string): any {
     return usersMap[userId] || { 
       id: userId,
       email: 'Unknown User', 
       full_name: null,
-      avatar_url: null,
-      subscription_tier: 'free',
-      credits_remaining: 0,
-      credits_reset_date: '',
-      created_at: ''
+      avatar_url: null 
     };
   }
   

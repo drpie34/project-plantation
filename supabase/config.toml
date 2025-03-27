@@ -37,4 +37,5 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [functions]
-serve.port = 9999
+[functions.serve]
+port = 9999

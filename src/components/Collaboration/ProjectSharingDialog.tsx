@@ -18,7 +18,7 @@ import {
   AvatarImage
 } from '@/components/ui';
 import { Search as SearchIcon, UserPlus as UserPlusIcon, X as XIcon } from 'lucide-react';
-import { Project, User } from '@/types/supabase';
+import { Project } from '@/types/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProjectSharingDialogProps {
@@ -27,18 +27,25 @@ interface ProjectSharingDialogProps {
   onUpdate?: (updatedProject: Project) => void;
 }
 
+type CollaboratorUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
 export default function ProjectSharingDialog({ 
   project, 
   trigger, 
   onUpdate 
 }: ProjectSharingDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [collaborators, setCollaborators] = useState<User[]>([]);
+  const [collaborators, setCollaborators] = useState<CollaboratorUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [searchResults, setSearchResults] = useState<CollaboratorUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [permissions, setPermissions] = useState<string>(
-    project.collaboration_settings?.permissions || 'view'
+  const [permissions, setPermissions] = useState<"view" | "comment" | "edit">(
+    (project.collaboration_settings?.permissions as "view" | "comment" | "edit") || "view"
   );
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -379,7 +386,7 @@ export default function ProjectSharingDialog({
             </label>
             <Select
               value={permissions}
-              onValueChange={(value) => setPermissions(value)}
+              onValueChange={(value: "view" | "comment" | "edit") => setPermissions(value)}
             >
               <option value="view">View only</option>
               <option value="comment">Can comment</option>

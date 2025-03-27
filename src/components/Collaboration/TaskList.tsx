@@ -21,15 +21,21 @@ import {
 } from '@/components/ui';
 import { format, isPast, isToday } from 'date-fns';
 import { Plus as PlusIcon, Calendar as CalendarIcon, Check as CheckIcon, X as XIcon } from 'lucide-react';
-import { User } from '@/types/supabase';
+
+interface TaskUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
 
 interface Task {
   id: string;
   project_id: string;
   title: string;
   description: string | null;
-  assigned_to: User | null;
-  created_by: User;
+  assigned_to: TaskUser | null;
+  created_by: TaskUser;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   due_date: string | null;
   priority: 'low' | 'medium' | 'high';
@@ -51,7 +57,7 @@ interface TaskListProps {
 
 export default function TaskList({ projectId }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [collaborators, setCollaborators] = useState<User[]>([]);
+  const [collaborators, setCollaborators] = useState<TaskUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filteredStatus, setFilteredStatus] = useState('all');
@@ -98,7 +104,15 @@ export default function TaskList({ projectId }: TaskListProps) {
       const { data, error } = await query;
       
       if (error) throw error;
-      setTasks(data || []);
+      
+      // Transform the data to match our Task interface
+      const formattedTasks: Task[] = (data || []).map((task: any) => ({
+        ...task,
+        assigned_to: task.assigned_to,
+        created_by: task.created_by
+      }));
+      
+      setTasks(formattedTasks);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -132,6 +146,7 @@ export default function TaskList({ projectId }: TaskListProps) {
         .in('id', userIds);
       
       if (error) throw error;
+      
       setCollaborators(data || []);
     } catch (error: any) {
       console.error('Error fetching collaborators:', error);
@@ -187,7 +202,7 @@ export default function TaskList({ projectId }: TaskListProps) {
       if (error) throw error;
       
       // Add the new task to the list
-      setTasks(prev => [data, ...prev]);
+      setTasks(prev => [data as Task, ...prev]);
       
       toast({
         title: 'Success',
