@@ -11,6 +11,13 @@ export interface PlanResult {
   extendedThinking: boolean;
 }
 
+// Define a type for the AI generated data to help TypeScript understand its structure
+interface AIGeneratedData {
+  key_features?: string[];
+  revenue_model?: string;
+  [key: string]: any; // Allow for other properties
+}
+
 export const useProjectPlanning = (projectId: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +41,9 @@ export const useProjectPlanning = (projectId: string) => {
       console.log('Loaded idea details:', data);
       
       if (data) {
+        // Type assertion for ai_generated_data to help TypeScript understand its structure
+        const aiGeneratedData = data.ai_generated_data as AIGeneratedData | null;
+
         // Create a comprehensive planning requirements based on idea details
         let requirements = `Create a detailed project plan for the following SaaS product:
         
@@ -43,13 +53,13 @@ Problem Solved: ${data.problem_solved || 'Not provided'}
 Target Audience: ${data.target_audience || 'Not provided'}
 Tags: ${data.tags?.join(', ') || 'None'}
 
-${data.ai_generated_data?.key_features ? 
+${aiGeneratedData?.key_features ? 
   `Key Features:
-${data.ai_generated_data.key_features.map((feature: string) => `- ${feature}`).join('\n')}` 
+${aiGeneratedData.key_features.map((feature: string) => `- ${feature}`).join('\n')}` 
   : ''}
 
-${data.ai_generated_data?.revenue_model ? 
-  `Revenue Model: ${data.ai_generated_data.revenue_model}` 
+${aiGeneratedData?.revenue_model ? 
+  `Revenue Model: ${aiGeneratedData.revenue_model}` 
   : ''}
 
 Please provide a comprehensive project plan including timeline, required resources, and technical considerations.`;
