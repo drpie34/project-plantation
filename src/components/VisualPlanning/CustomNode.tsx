@@ -2,13 +2,13 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
-// Define the shape of our node data
+// Define the shape of our node data property only
 interface CustomNodeData {
   label: string;
 }
 
 // The CustomNode component receives props from ReactFlow
-const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<{ label: string }>) => {
+const CustomNode = memo(({ data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   return (
     <div
       className={`px-4 py-2 shadow-md rounded-md bg-white border ${
