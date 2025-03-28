@@ -474,3 +474,18 @@ export type UserActivity = {
   details: Record<string, any>;
   created_at: string;
 };
+
+export type Document = {
+  id: string;
+  title: string;
+  type: 'project_overview' | 'market_research' | 'project_planning' | 'design_development' | 'chat_transcript' | 'uploaded';
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  project_id: string;
+  is_auto_generated?: boolean;
+  file_path?: string;
+  file_type?: string;
+  file_size?: number;
+};

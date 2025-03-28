@@ -31,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  console.log("AuthProvider initializing");
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
@@ -145,7 +146,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password,
         options: {
-          emailRedirectTo: `${getSiteUrl()}/login`,
+          emailRedirectTo: `${getSiteUrl()}/profile-completion`,
         }
       });
 
@@ -162,7 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await createProfile(data.user.id, email);
         toast({
           title: 'Account created',
-          description: 'Please check your email to verify your account',
+          description: 'You will be redirected to complete your profile',
         });
       }
 
@@ -232,47 +233,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session);
+    console.log("AuthProvider useEffect running");
+    
+    try {
+      // Set up auth state listener FIRST
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          console.log('Auth state changed:', event, session);
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            // Use setTimeout to prevent potential deadlocks
+            setTimeout(() => {
+              fetchProfile(session.user.id).then(userProfile => {
+                setProfile(userProfile);
+                setLoading(false);
+              }).catch(error => {
+                console.error("Error fetching profile:", error);
+                setLoading(false);
+              });
+            }, 0);
+          } else {
+            setProfile(null);
+            setLoading(false);
+          }
+        }
+      );
+
+      // THEN check for existing session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log('Got existing session:', session);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to prevent potential deadlocks
-          setTimeout(() => {
-            fetchProfile(session.user.id).then(userProfile => {
-              setProfile(userProfile);
-              setLoading(false);
-            });
-          }, 0);
+          fetchProfile(session.user.id).then(userProfile => {
+            setProfile(userProfile);
+            setLoading(false);
+          }).catch(error => {
+            console.error("Error fetching profile:", error);
+            setLoading(false);
+          });
         } else {
-          setProfile(null);
           setLoading(false);
         }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Got existing session:', session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id).then(userProfile => {
-          setProfile(userProfile);
-          setLoading(false);
-        });
-      } else {
+      }).catch(error => {
+        console.error("Error getting session:", error);
         setLoading(false);
-      }
-    });
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+      return () => {
+        try {
+          subscription.unsubscribe();
+        } catch (error) {
+          console.error("Error unsubscribing:", error);
+        }
+      };
+    } catch (error) {
+      console.error("Critical error in auth setup:", error);
+      setLoading(false);
+    }
   }, []);
 
   const isAuthenticated = !!user && !!session;

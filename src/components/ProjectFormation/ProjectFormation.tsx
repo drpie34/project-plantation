@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -19,7 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronRight, Plus, ArrowRight } from 'lucide-react';
 import { generateProjectSuggestion, createProject } from '@/utils/projectFormation';
+import { callApiGateway } from '@/utils/apiGateway';
 import { Idea } from '@/types/supabase';
+import { documentService } from '@/services/documentService';
+import { databaseService } from '@/services/databaseService';
+import { useErrorHandler } from '@/services/errorService';
 
 interface ProjectFormationProps {
   ideaId?: string;
@@ -30,6 +33,7 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { handleError } = useErrorHandler();
   
   const [idea, setIdea] = useState<Idea | null>(null);
   const [research, setResearch] = useState<any | null>(null);
@@ -43,6 +47,10 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [projectGoals, setProjectGoals] = useState('');
+  const [keyFeatures, setKeyFeatures] = useState('');
+  const [additionalConsiderations, setAdditionalConsiderations] = useState('');
+  const [documentContent, setDocumentContent] = useState('');
+  const [documentLastUpdated, setDocumentLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     if (ideaId || researchId) {
@@ -145,6 +153,8 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
       const nameMatch = result.content.match(/Project Name:?(.+?)(?:\n|$)/i);
       const descMatch = result.content.match(/Description:?(.+?)(?:\n\n|\n#|$)/is);
       const goalsMatch = result.content.match(/Goals:?(.+?)(?:\n\n|\n#|$)/is);
+      const keyFeaturesMatch = result.content.match(/Key Features:?(.+?)(?:\n\n|\n#|$)/is);
+      const additionalConsiderationsMatch = result.content.match(/Additional Considerations:?(.+?)(?:\n\n|\n#|$)/is);
       
       if (nameMatch && nameMatch[1].trim()) {
         setProjectName(nameMatch[1].trim());
@@ -157,6 +167,21 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
       if (goalsMatch && goalsMatch[1].trim()) {
         setProjectGoals(goalsMatch[1].trim());
       }
+      
+      if (keyFeaturesMatch && keyFeaturesMatch[1].trim()) {
+        setKeyFeatures(keyFeaturesMatch[1].trim());
+      }
+      
+      if (additionalConsiderationsMatch && additionalConsiderationsMatch[1].trim()) {
+        setAdditionalConsiderations(additionalConsiderationsMatch[1].trim());
+      }
+      
+      // Update document content automatically
+      setTimeout(() => {
+        updateProjectDocument();
+        // Also save the draft automatically
+        handleSaveDraft();
+      }, 100);
       
     } catch (error: any) {
       console.error('Error generating project suggestion:', error);
@@ -187,41 +212,207 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
       return;
     }
     
+    // Make sure the document is updated with the latest content
+    updateProjectDocument();
+    
+    // Force a small delay to ensure state is updated
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     setIsSaving(true);
+    let newProjectId = null;
     
     try {
-      const newProject = await createProject({
-        title: projectName,
-        description: projectDescription,
-        userId: user.id,
-        ideaId: idea?.id || null
-      });
+      // Prepare description that includes key information
+      let enhancedDescription = projectDescription || '';
       
+      // Add a summary of goals and features to the description
+      if (projectGoals || keyFeatures || additionalConsiderations) {
+        enhancedDescription += '\n\n';
+        
+        if (projectGoals) {
+          enhancedDescription += '**Goals:**\n' + projectGoals + '\n\n';
+        }
+        
+        if (keyFeatures) {
+          enhancedDescription += '**Key Features:**\n' + keyFeatures + '\n\n';
+        }
+        
+        if (additionalConsiderations) {
+          enhancedDescription += '**Additional Considerations:**\n' + additionalConsiderations;
+        }
+      }
+      
+      // STEP 1: Create the project directly with Supabase
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          title: projectName,
+          description: enhancedDescription,
+          user_id: user.id,
+          stage: 'planning',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (projectError) {
+        throw new Error('Failed to create project: ' + projectError.message);
+      }
+      
+      if (!projectData || !projectData.id) {
+        throw new Error('Failed to create project: No project ID returned');
+      }
+      
+      newProjectId = projectData.id;
+      
+      // STEP 2: Link idea to project if provided
+      if (idea?.id) {
+        await supabase
+          .from('ideas')
+          .update({ project_id: newProjectId })
+          .eq('id', idea.id);
+      }
+      
+      // STEP 3: Create the document
+      console.log('Creating document for project ID:', newProjectId);
+      
+      // Check if user exists
+      if (!user?.id) {
+        throw new Error('User not found');
+      }
+      
+      // Use our documentService to create a document
+      try {
+        // Create the document
+        const documentParams = {
+          title: `${projectName} - Overview`,
+          type: 'project_overview' as const,
+          content: documentContent,
+          user_id: user.id,
+          project_id: newProjectId,
+          is_auto_generated: true
+        };
+        
+        // Debug the document content
+        console.log('==== DEBUG: Document creation ====');
+        console.log('Project ID:', newProjectId);
+        console.log('User ID:', user.id);
+        console.log('Document title:', `${projectName} - Overview`);
+        console.log('Content length:', documentContent.length);
+        console.log('Content snippet:', documentContent.substring(0, 150) + '...');
+        console.log('==== END DEBUG ====');
+        
+        // Log document creation attempt
+        console.log('Creating document with params:', JSON.stringify(documentParams, null, 2));
+        
+        const newDocument = await documentService.createDocument(documentParams);
+        
+        if (newDocument) {
+          console.log('==== SUCCESS: Document created ====');
+          console.log('Document ID:', newDocument.id);
+          console.log('Document in database:', JSON.stringify({
+            id: newDocument.id,
+            title: newDocument.title,
+            projectId: newDocument.project_id,
+            type: newDocument.type,
+            isAutoGenerated: newDocument.is_auto_generated
+          }));
+          console.log('==== END SUCCESS ====');
+        } else {
+          console.warn('Document creation returned null - fallback to localStorage');
+          // The documentService already handles localStorage fallback internally
+        }
+      } catch (documentError) {
+        console.error('Document creation failed:', documentError);
+        handleError('ProjectFormation', 'handleCreateProject', documentError, { 
+          step: 'document_creation',
+          projectId: newProjectId
+        }, false); // Don't show a toast for this
+        // Continue anyway - we'll at least try to save to localStorage next
+      }
+      
+      // Success path
       toast({
         title: 'Success',
         description: 'Project created successfully',
       });
       
-      navigate(`/projects/${newProject.id}`);
+      // Save document to localStorage as an additional backup
+      try {
+        localStorage.setItem(`project_document_${newProjectId}`, documentContent);
+      } catch (storageError) {
+        console.error('Error saving to localStorage:', storageError);
+      }
+      
+      // STEP 4: Navigate to project page
+      setTimeout(() => {
+        navigate(`/projects/${newProjectId}`);
+      }, 500);
+      
     } catch (error: any) {
-      console.error('Error creating project:', error);
+      console.error('Error in project creation process:', error);
       
       toast({
         title: 'Error',
-        description: 'Failed to create project',
+        description: error.message || 'Failed to create project',
         variant: 'destructive',
       });
+      
+      // If we created a project but failed later, navigate to it anyway
+      if (newProjectId) {
+        toast({
+          title: 'Partial success',
+          description: 'Project created but some elements may be missing',
+        });
+        
+        setTimeout(() => {
+          navigate(`/projects/${newProjectId}`);
+        }, 1000);
+      }
     } finally {
       setIsSaving(false);
     }
   }
   
+  function updateProjectDocument() {
+    const content = `# ${projectName || 'Project Plan'}
+
+## Description
+${projectDescription || 'No description provided yet.'}
+
+## Goals
+${projectGoals || 'No goals defined yet.'}
+
+## Key Features
+${keyFeatures || 'No key features defined yet.'}
+
+## Additional Considerations
+${additionalConsiderations || 'No additional considerations defined yet.'}
+`;
+
+    setDocumentContent(content);
+    setDocumentLastUpdated(new Date());
+  }
+
   async function handleSaveDraft() {
-    // Implement save draft functionality
-    toast({
-      title: 'Not implemented',
-      description: 'Save draft functionality is not implemented yet',
-    });
+    // First update the document content
+    updateProjectDocument();
+    
+    // Then save the draft to the database
+    try {
+      // TODO: Implement actual saving to the database
+      toast({
+        title: 'Document Updated',
+        description: 'Your project document has been updated',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save draft',
+        variant: 'destructive',
+      });
+    }
   }
   
   return (
@@ -240,145 +431,755 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Related Information</h3>
-                
-                {idea ? (
-                  <div className="border rounded-md p-4 bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <Badge variant="outline" className="mb-2">Idea</Badge>
-                        <h4 className="font-medium">{idea.title}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{idea.description}</p>
+              {idea && (
+                <div className="border rounded-md p-4 mb-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center mb-2">
+                        <Badge className="bg-blue-100 text-blue-800 mr-2">Idea</Badge>
+                        <h3 className="font-medium">{idea.title}</h3>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/ideas/${idea.id}`)}>
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      
+                      <details className="cursor-pointer">
+                        <summary className="font-medium text-sm text-blue-600 hover:text-blue-800 transition-colors">
+                          View idea details
+                        </summary>
+                        <div className="mt-3 space-y-2 p-3 bg-gray-50 rounded-md">
+                          <div>
+                            <h4 className="text-sm font-medium">Description</h4>
+                            <p className="text-sm text-gray-600">{idea.description}</p>
+                          </div>
+                          
+                          {idea.target_audience && (
+                            <div>
+                              <h4 className="text-sm font-medium">Target Audience</h4>
+                              <p className="text-sm text-gray-600">{idea.target_audience}</p>
+                            </div>
+                          )}
+                          
+                          {idea.problem_solved && (
+                            <div>
+                              <h4 className="text-sm font-medium">Problem Solved</h4>
+                              <p className="text-sm text-gray-600">{idea.problem_solved}</p>
+                            </div>
+                          )}
+                          
+                          {idea.tags && idea.tags.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium">Tags</h4>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {idea.tags.map((tag, index) => (
+                                  <Badge key={index} variant="outline" className="text-xs bg-gray-100">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     </div>
                   </div>
-                ) : (
-                  <div className="border border-dashed rounded-md p-4 flex justify-between items-center">
-                    <span className="text-gray-500">No idea linked</span>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/ideas')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Idea
-                    </Button>
-                  </div>
-                )}
-                
-                {research ? (
-                  <div className="border rounded-md p-4 bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <Badge variant="outline" className="mb-2">Market Research</Badge>
-                        <h4 className="font-medium">{research.search_query}</h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {research.ai_analysis?.length > 150
-                            ? research.ai_analysis.substring(0, 150) + '...'
-                            : research.ai_analysis}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/research/${research.id}`)}>
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border border-dashed rounded-md p-4 flex justify-between items-center">
-                    <span className="text-gray-500">No market research linked</span>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/research/new')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Research
-                    </Button>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
               
-              {(idea || research) && !suggestedProject && (
-                <div className="flex justify-center mt-6">
-                  <Button
-                    onClick={handleGenerateProjectSuggestion}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                        Generate Project Suggestion
-                      </>
-                    )}
+              {!idea && (
+                <div className="border border-dashed rounded-md p-4 mb-6 flex justify-between items-center">
+                  <span className="text-gray-500">No idea linked</span>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/ideas')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Select an Idea
                   </Button>
                 </div>
               )}
               
-              {suggestedProject && (
+              <div className="pt-6">
+                <h3 className="text-lg font-medium mb-4">Create Your Project</h3>
+                
+                <div className="flex justify-end mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    onClick={handleGenerateProjectSuggestion}
+                    disabled={isGenerating || !idea}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2">✨</span>
+                        Fill All Fields with AI
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Project Name
+                      </label>
+                      {projectName ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Based on this project name: "${projectName}", 
+                                  Complete or improve this project name to be more specific and appealing.
+                                  Just return the improved name, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectName(result.content.trim());
+                            } catch (error) {
+                              console.error('Error completing with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to complete with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Improve with AI
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            if (!idea) return;
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Generate a project name for this idea: 
+                                  Title: ${idea.title}
+                                  Description: ${idea.description}
+                                  Target Audience: ${idea.target_audience || 'Not specified'}
+                                  Problem: ${idea.problem_solved || 'Not specified'}
+                                  Just return the name, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectName(result.content.trim());
+                            } catch (error) {
+                              console.error('Error generating with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to generate with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating || !idea}
+                        >
+                          Generate with AI
+                        </Button>
+                      )}
+                    </div>
+                    <Input 
+                      placeholder="Enter project name" 
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Description
+                      </label>
+                      {projectDescription ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Complete or improve this project description: "${projectDescription}".
+                                  Make it detailed and professional. Focus on what the project is about.
+                                  Just return the improved description, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectDescription(result.content.trim());
+                            } catch (error) {
+                              console.error('Error completing with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to complete with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Complete with AI
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            if (!idea) return;
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Generate a detailed description for this project based on the idea:
+                                  Idea: ${idea.title}
+                                  Description: ${idea.description}
+                                  Target Audience: ${idea.target_audience || 'Not specified'}
+                                  Problem: ${idea.problem_solved || 'Not specified'}
+                                  Just return the description, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectDescription(result.content.trim());
+                            } catch (error) {
+                              console.error('Error generating with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to generate with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating || !idea}
+                        >
+                          Generate with AI
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea 
+                      placeholder="Describe your project"
+                      rows={3}
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Goals
+                      </label>
+                      {projectGoals ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Complete or improve these project goals: "${projectGoals}".
+                                  Make them SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
+                                  Format as bullet points. Just return the improved goals, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectGoals(result.content.trim());
+                            } catch (error) {
+                              console.error('Error completing with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to complete with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Complete with AI
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            if (!idea || !projectName || !projectDescription) return;
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Generate SMART goals for this project:
+                                  Project: ${projectName}
+                                  Description: ${projectDescription}
+                                  Based on idea: ${idea.description}
+                                  Format as bullet points. Just return the goals as bullet points, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setProjectGoals(result.content.trim());
+                            } catch (error) {
+                              console.error('Error generating with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to generate with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating || !idea || !projectName || !projectDescription}
+                        >
+                          Generate with AI
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea 
+                      placeholder="What are the main goals of this project?"
+                      rows={3}
+                      value={projectGoals}
+                      onChange={(e) => setProjectGoals(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Key Features
+                      </label>
+                      {keyFeatures ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Complete or enhance these key features: "${keyFeatures}".
+                                  Focus on the most valuable features for users. 
+                                  Format as bullet points with brief descriptions.
+                                  Just return the improved features, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setKeyFeatures(result.content.trim());
+                            } catch (error) {
+                              console.error('Error completing with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to complete with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Complete with AI
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            if (!idea || !projectName || !projectDescription) return;
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Generate key features for this SaaS project:
+                                  Project: ${projectName}
+                                  Description: ${projectDescription}
+                                  Goals: ${projectGoals}
+                                  Based on idea: ${idea.description}
+                                  Format as bullet points with brief descriptions. Just return the features, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setKeyFeatures(result.content.trim());
+                            } catch (error) {
+                              console.error('Error generating with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to generate with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating || !idea || !projectName || !projectDescription}
+                        >
+                          Generate with AI
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea 
+                      placeholder="List the key features of this project"
+                      rows={4}
+                      value={keyFeatures}
+                      onChange={(e) => setKeyFeatures(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Additional Considerations
+                      </label>
+                      {additionalConsiderations ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Complete or enhance these additional considerations: "${additionalConsiderations}".
+                                  Consider technical requirements, market considerations, challenges, and risks.
+                                  Format as bullet points grouped by category (Technical, Market, Risks, etc.).
+                                  Just return the improved considerations, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setAdditionalConsiderations(result.content.trim());
+                            } catch (error) {
+                              console.error('Error completing with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to complete with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Complete with AI
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-5 px-2 py-0 text-blue-600"
+                          onClick={async () => {
+                            if (!idea || !projectName || !projectDescription) return;
+                            setIsGenerating(true);
+                            try {
+                              if (!user) return;
+                              
+                              const { data } = await supabase
+                                .from('users')
+                                .select('subscription_tier')
+                                .eq('id', user.id)
+                                .single();
+                              
+                              const result = await callApiGateway('check-ai-router', {
+                                task: 'projectSuggestion',
+                                content: `
+                                  Generate additional considerations for this SaaS project:
+                                  Project: ${projectName}
+                                  Description: ${projectDescription}
+                                  Goals: ${projectGoals}
+                                  Features: ${keyFeatures}
+                                  Based on idea: ${idea.description}
+                                  Include technical requirements, market considerations, challenges, and risks.
+                                  Format as bullet points grouped by category. Just return the considerations, nothing else.
+                                `,
+                                userTier: data?.subscription_tier || 'free'
+                              });
+                              
+                              setAdditionalConsiderations(result.content.trim());
+                            } catch (error) {
+                              console.error('Error generating with AI:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to generate with AI',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
+                          disabled={isGenerating || !idea || !projectName || !projectDescription}
+                        >
+                          Generate with AI
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea 
+                      placeholder="Any technical requirements, market considerations, or challenges"
+                      rows={4}
+                      value={additionalConsiderations}
+                      onChange={(e) => setAdditionalConsiderations(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              
+              {/* Project Document Preview */}
+              {documentContent && (
+                <div className="mt-6 space-y-4">
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Project Document</h3>
+                    {documentLastUpdated && (
+                      <span className="text-sm text-gray-500">
+                        Last updated: {documentLastUpdated.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="prose prose-blue max-w-none border rounded-md p-4 bg-blue-50 relative">
+                    <div className="absolute top-2 right-2 flex space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        // Copy to clipboard
+                        navigator.clipboard.writeText(documentContent);
+                        toast({
+                          title: 'Copied',
+                          description: 'Document copied to clipboard',
+                        });
+                      }}>
+                        Copy
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        // Create download link
+                        const blob = new Blob([documentContent], { type: 'text/markdown' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${projectName || 'project'}_plan.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}>
+                        Download
+                      </Button>
+                    </div>
+                    <div dangerouslySetInnerHTML={{ __html: documentContent.replace(/\n/g, '<br/>') }} />
+                  </div>
+                </div>
+              )}
+              
+              {suggestedProject && !documentContent && (
                 <div className="mt-6 space-y-4">
                   <Separator />
                   <h3 className="text-lg font-medium">AI-Generated Project Suggestion</h3>
                   
-                  <div className="prose prose-blue max-w-none">
+                  <div className="prose prose-blue max-w-none border rounded-md p-4 bg-blue-50">
                     <div dangerouslySetInnerHTML={{ __html: suggestedProject.content.replace(/\n/g, '<br/>') }} />
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="pt-2">
-                    <h3 className="text-md font-medium mb-3">Create Your Project</h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project Name
-                        </label>
-                        <Input 
-                          placeholder="Enter project name" 
-                          value={projectName}
-                          onChange={(e) => setProjectName(e.target.value)}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Description
-                        </label>
-                        <Textarea 
-                          placeholder="Describe your project"
-                          rows={3}
-                          value={projectDescription}
-                          onChange={(e) => setProjectDescription(e.target.value)}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Goals
-                        </label>
-                        <Textarea 
-                          placeholder="What are the main goals of this project?"
-                          rows={3}
-                          value={projectGoals}
-                          onChange={(e) => setProjectGoals(e.target.value)}
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button variant="outline" className="mr-2" onClick={handleSaveDraft} disabled={isSaving}>
-            Save Draft
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => navigate('/ideas')}>
+            Back to Ideas
           </Button>
-          <Button onClick={handleCreateProject} disabled={isSaving || !projectName.trim()}>
-            {isSaving ? 'Creating...' : 'Create Project'}
-          </Button>
+          <div>
+            <Button 
+              variant="outline" 
+              className="mr-2" 
+              onClick={() => {
+                updateProjectDocument();
+                handleSaveDraft();
+              }} 
+              disabled={isSaving}
+            >
+              {documentContent ? 'Update Document' : 'Generate Document'}
+            </Button>
+            <Button 
+              onClick={handleCreateProject} 
+              disabled={isSaving || !projectName.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isSaving ? 'Creating...' : 'Create Project'}
+            </Button>
+          </div>
         </CardFooter>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Development Journey</CardTitle>
+          <CardDescription>
+            Your recommended project workflow
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <div className="bg-blue-100 text-blue-800 rounded-full h-8 w-8 flex items-center justify-center font-medium">1</div>
+              <div className="flex-1">
+                <h4 className="font-medium">Ideas Hub</h4>
+                <p className="text-sm text-gray-600">Generate and refine your business ideas</p>
+              </div>
+              <Badge className="bg-green-100 text-green-800">Current Step</Badge>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="bg-gray-100 text-gray-800 rounded-full h-8 w-8 flex items-center justify-center font-medium">2</div>
+              <div className="flex-1">
+                <h4 className="font-medium">Market Research</h4>
+                <p className="text-sm text-gray-600">Validate your idea with comprehensive market analysis</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(ideaId ? `/market-research?ideaId=${ideaId}` : '/market-research')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="bg-gray-100 text-gray-800 rounded-full h-8 w-8 flex items-center justify-center font-medium">3</div>
+              <div className="flex-1">
+                <h4 className="font-medium">Project Planning</h4>
+                <p className="text-sm text-gray-600">Define scope, tech stack, roadmap, and resources</p>
+              </div>
+              <Button variant="ghost" size="sm" disabled>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="bg-gray-100 text-gray-800 rounded-full h-8 w-8 flex items-center justify-center font-medium">4</div>
+              <div className="flex-1">
+                <h4 className="font-medium">Design & Development</h4>
+                <p className="text-sm text-gray-600">Create visual designs and implement with Lovable.dev</p>
+              </div>
+              <Button variant="ghost" size="sm" disabled>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );

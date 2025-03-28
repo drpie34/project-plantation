@@ -12,24 +12,24 @@ import {
   CardDescription,
   Button
 } from '@/components/ui';
-import IdeaHeader from '@/components/ideas/IdeaHeader';
 import IdeaContent from '@/components/ideas/IdeaContent';
-import IdeaActions from '@/components/ideas/IdeaActions';
+import NewIdeaDialog from '@/components/IdeasHub/NewIdeaDialog';
 import { ArrowLeft } from 'lucide-react';
 
 export default function IdeaDetail() {
-  const { projectId, ideaId } = useParams<{ projectId: string; ideaId: string }>();
+  const { ideaId } = useParams<{ ideaId: string }>();
   const [idea, setIdea] = useState<Idea | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (projectId && ideaId && user) {
+    if (ideaId && user) {
       fetchIdea();
     }
-  }, [projectId, ideaId, user]);
+  }, [ideaId, user]);
 
   async function fetchIdea() {
     try {
@@ -37,7 +37,6 @@ export default function IdeaDetail() {
         .from('ideas')
         .select('*')
         .eq('id', ideaId)
-        .eq('project_id', projectId)
         .single();
 
       if (error) throw error;
@@ -55,20 +54,61 @@ export default function IdeaDetail() {
     }
   }
 
-  const handleEdit = () => {
-    toast({
-      title: 'Info',
-      description: 'Edit functionality not yet implemented',
-      variant: 'default',
-    });
+  const handleEdit = async () => {
+    // Open the edit dialog with current idea data
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (updatedIdea: Partial<Idea>) => {
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .update(updatedIdea)
+        .eq('id', ideaId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setIdea(data as Idea);
+      setIsEditDialogOpen(false);
+      toast({
+        title: 'Success',
+        description: 'Idea updated successfully',
+        variant: 'default',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update idea',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDelete = async () => {
-    toast({
-      title: 'Info',
-      description: 'Delete functionality not yet implemented',
-      variant: 'default',
-    });
+    try {
+      const { error } = await supabase
+        .from('ideas')
+        .delete()
+        .eq('id', ideaId);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Idea deleted successfully',
+        variant: 'default',
+      });
+      
+      navigate('/ideas');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete idea',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isLoading) {
@@ -87,8 +127,8 @@ export default function IdeaDetail() {
           <p className="text-muted-foreground mb-6">
             The idea you're looking for doesn't exist or you don't have access to it.
           </p>
-          <Button onClick={() => navigate(`/projects/${projectId}`)}>
-            Back to Project
+          <Button onClick={() => navigate('/ideas')}>
+            Back to Ideas
           </Button>
         </div>
       </div>
@@ -97,7 +137,18 @@ export default function IdeaDetail() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <IdeaHeader idea={idea} projectId={projectId || ''} />
+      <div className="mb-6 flex justify-between items-center">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => navigate('/ideas')}
+          className="flex items-center gap-1"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Ideas
+        </Button>
+        <h1 className="text-2xl font-bold">{idea.title}</h1>
+      </div>
 
       <Card className="mb-6">
         <CardHeader className="pb-3">
@@ -111,12 +162,32 @@ export default function IdeaDetail() {
         </CardContent>
       </Card>
 
-      <IdeaActions 
-        projectId={projectId || ''} 
-        ideaId={ideaId || ''} 
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      <div className="flex gap-4 justify-end">
+        <Button variant="outline" onClick={handleEdit}>
+          Edit Idea
+        </Button>
+        <Button 
+          variant="destructive" 
+          onClick={handleDelete}>
+          Delete Idea
+        </Button>
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700"
+          onClick={() => navigate(`/projects/formation?ideaId=${ideaId}`)}>
+          Start Project
+        </Button>
+      </div>
+
+      {isEditDialogOpen && idea && (
+        <NewIdeaDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          onCreate={handleEditSubmit}
+          categories={[]}
+          initialData={idea}
+          isEditing={true}
+        />
+      )}
     </div>
   );
 };

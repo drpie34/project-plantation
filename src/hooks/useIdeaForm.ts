@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,20 +15,22 @@ type IdeaFormData = {
 type UseIdeaFormProps = {
   onCreate: (idea: Idea) => void;
   onClose: () => void;
+  initialData?: Idea;
+  isEditing?: boolean;
 };
 
-export const useIdeaForm = ({ onCreate, onClose }: UseIdeaFormProps) => {
+export const useIdeaForm = ({ onCreate, onClose, initialData, isEditing = false }: UseIdeaFormProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState<IdeaFormData>({
-    title: '',
-    description: '',
-    target_audience: '',
-    problem_solved: '',
-    tags: []
+    title: initialData?.title || '',
+    description: initialData?.description || '',
+    target_audience: initialData?.target_audience || '',
+    problem_solved: initialData?.problem_solved || '',
+    tags: initialData?.tags || []
   });
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -64,63 +65,102 @@ export const useIdeaForm = ({ onCreate, onClose }: UseIdeaFormProps) => {
     setIsSubmitting(true);
     
     try {
-      // Insert new idea
-      const { data: ideaData, error: ideaError } = await supabase
-        .from('ideas')
-        .insert({
-          title: formData.title,
-          description: formData.description || null,
-          target_audience: formData.target_audience || null,
-          problem_solved: formData.problem_solved || null,
-          project_id: selectedProject,
-          tags: formData.tags,
-          status: 'draft' as "draft" | "developing" | "ready" | "archived",
-          inspiration_sources: {},
-          collaboration_settings: { visibility: 'private' },
-          version: 1,
-          version_history: []
-        })
-        .select()
-        .single();
-      
-      if (ideaError) throw ideaError;
-      
-      // Ensure the returned idea conforms to the Idea type
-      const typedIdea: Idea = {
-        ...ideaData,
-        status: ideaData.status as "draft" | "developing" | "ready" | "archived",
-        tags: ideaData.tags || [],
-        // Properly cast JSON fields to their expected types
-        inspiration_sources: (ideaData.inspiration_sources || {}) as Record<string, any>,
-        collaboration_settings: (ideaData.collaboration_settings || { visibility: 'private' }) as { 
-          visibility: 'private' | 'team' | 'public' 
-        },
-        version: ideaData.version || 1,
-        version_history: (ideaData.version_history || []) as Record<string, any>[]
-      };
-      
-      // Add category links if categories are selected
-      if (selectedCategories.length > 0) {
-        await addIdeaCategories(typedIdea.id, selectedCategories);
+      if (isEditing && initialData) {
+        // Update existing idea
+        const { data: ideaData, error: ideaError } = await supabase
+          .from('ideas')
+          .update({
+            title: formData.title,
+            description: formData.description || null,
+            target_audience: formData.target_audience || null,
+            problem_solved: formData.problem_solved || null,
+            project_id: selectedProject,
+            tags: formData.tags
+          })
+          .eq('id', initialData.id)
+          .select()
+          .single();
+        
+        if (ideaError) throw ideaError;
+        
+        // Ensure the returned idea conforms to the Idea type
+        const typedIdea: Idea = {
+          ...ideaData,
+          status: ideaData.status as "draft" | "developing" | "ready" | "archived",
+          tags: ideaData.tags || [],
+          inspiration_sources: (ideaData.inspiration_sources || {}) as Record<string, any>,
+          collaboration_settings: (ideaData.collaboration_settings || { visibility: 'private' }) as { 
+            visibility: 'private' | 'team' | 'public' 
+          },
+          version: ideaData.version || 1,
+          version_history: (ideaData.version_history || []) as Record<string, any>[]
+        };
+        
+        toast({
+          title: 'Success',
+          description: 'Idea updated successfully',
+        });
+        
+        // Call the onCreate callback with the updated idea
+        onCreate(typedIdea);
+      } else {
+        // Insert new idea
+        const { data: ideaData, error: ideaError } = await supabase
+          .from('ideas')
+          .insert({
+            title: formData.title,
+            description: formData.description || null,
+            target_audience: formData.target_audience || null,
+            problem_solved: formData.problem_solved || null,
+            project_id: selectedProject,
+            tags: formData.tags,
+            status: 'draft' as "draft" | "developing" | "ready" | "archived",
+            inspiration_sources: {},
+            collaboration_settings: { visibility: 'private' },
+            version: 1,
+            version_history: []
+          })
+          .select()
+          .single();
+        
+        if (ideaError) throw ideaError;
+        
+        // Ensure the returned idea conforms to the Idea type
+        const typedIdea: Idea = {
+          ...ideaData,
+          status: ideaData.status as "draft" | "developing" | "ready" | "archived",
+          tags: ideaData.tags || [],
+          inspiration_sources: (ideaData.inspiration_sources || {}) as Record<string, any>,
+          collaboration_settings: (ideaData.collaboration_settings || { visibility: 'private' }) as { 
+            visibility: 'private' | 'team' | 'public' 
+          },
+          version: ideaData.version || 1,
+          version_history: (ideaData.version_history || []) as Record<string, any>[]
+        };
+        
+        // Add category links if categories are selected
+        if (selectedCategories.length > 0) {
+          await addIdeaCategories(typedIdea.id, selectedCategories);
+        }
+        
+        toast({
+          title: 'Success',
+          description: 'New idea created',
+        });
+        
+        // Call the onCreate callback
+        onCreate(typedIdea);
       }
-      
-      toast({
-        title: 'Success',
-        description: 'New idea created',
-      });
-      
-      // Call the onCreate callback
-      onCreate(typedIdea);
       
       // Reset form
       resetForm();
       onClose();
       
     } catch (error) {
-      console.error('Error creating idea:', error);
+      console.error('Error creating/updating idea:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create idea',
+        description: isEditing ? 'Failed to update idea' : 'Failed to create idea',
         variant: 'destructive',
       });
     } finally {
@@ -169,6 +209,7 @@ export const useIdeaForm = ({ onCreate, onClose }: UseIdeaFormProps) => {
     handleTagsChange,
     handleCategoryChange,
     handleSubmit,
-    resetForm
+    resetForm,
+    setFormData
   };
 };

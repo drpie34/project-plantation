@@ -122,14 +122,6 @@ const DashboardLayout = () => {
               Dashboard
             </Button>
             <Button 
-              variant={isActive('/projects') ? "default" : "ghost"}
-              className="w-full justify-start" 
-              onClick={() => navigate('/projects')}
-            >
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Projects
-            </Button>
-            <Button 
               variant={isActive('/ideas') ? "default" : "ghost"}
               className="w-full justify-start" 
               onClick={() => navigate('/ideas')}
@@ -138,12 +130,12 @@ const DashboardLayout = () => {
               Ideas Hub
             </Button>
             <Button 
-              variant={isActive('/profile') ? "default" : "ghost"}
+              variant={isActive('/projects') ? "default" : "ghost"}
               className="w-full justify-start" 
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/projects')}
             >
-              <User className="h-4 w-4 mr-2" />
-              Profile
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Projects
             </Button>
           </nav>
         </div>

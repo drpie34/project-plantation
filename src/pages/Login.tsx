@@ -14,7 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const { signIn, isAuthenticated } = useAuth();
+  const { signIn, isAuthenticated, profile } = useAuth();
 
   useEffect(() => {
     // Extract error from URL if present
@@ -43,7 +43,17 @@ const Login = () => {
   };
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" />;
+    // Check if profile is incomplete, redirect to profile completion
+    const isProfileIncomplete = profile && 
+      (!profile.full_name || 
+      (!profile.github_url && !profile.linkedin_url && !profile.website_url));
+    
+    if (isProfileIncomplete) {
+      return <Navigate to="/profile-completion" />;
+    }
+    
+    // Otherwise go to ideas hub
+    return <Navigate to="/ideas" />;
   }
 
   return (

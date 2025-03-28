@@ -1,26 +1,14 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent 
-} from '@/components/ui/card';
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from '@/components/ui/tabs';
-import { AIModelIndicator } from '@/components/AIModelIndicator';
-import { ExtendedThinkingDisplay } from '@/components/ExtendedThinkingDisplay';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useProjectPlanning } from '@/hooks/useProjectPlanning';
+import PlanningTabs from '@/components/ProjectPlanning/PlanningTabs';
+import PlanningDocument from '@/components/ProjectPlanning/PlanningDocument';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ChevronRightIcon, Layout } from 'lucide-react';
 
 export default function ProjectPlanning() {
   const { projectId } = useParams();
@@ -34,20 +22,13 @@ export default function ProjectPlanning() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [requirements, setRequirements] = useState<string>('');
-  const [planningType, setPlanningType] = useState<string>('timeline');
+  const [documentContent, setDocumentContent] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
-  const {
-    generatePlan,
-    isLoading: isGenerating,
-    result: planResult,
-    creditsRemaining,
-    defaultRequirements,
-    loadIdeaDetails
-  } = useProjectPlanning(projectId || '');
+  const { loadIdeaDetails } = useProjectPlanning(projectId || '');
   
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId && !ideaId) return;
     
     const fetchData = async () => {
       setLoading(true);
@@ -58,22 +39,24 @@ export default function ProjectPlanning() {
           return;
         }
         
-        // Get project details
-        const { data: project, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
-        
-        if (projectError) throw projectError;
-        
-        // Check if user owns this project
-        if (project.user_id !== user.id) {
-          navigate('/dashboard');
-          return;
+        // If we have a projectId, get project details
+        if (projectId) {
+          const { data: project, error: projectError } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', projectId)
+            .single();
+          
+          if (projectError) throw projectError;
+          
+          // Check if user owns this project
+          if (project.user_id !== user.id) {
+            navigate('/dashboard');
+            return;
+          }
+          
+          setProject(project);
         }
-        
-        setProject(project);
         
       } catch (error: any) {
         console.error('Error fetching data:', error);
@@ -89,7 +72,7 @@ export default function ProjectPlanning() {
     };
     
     fetchData();
-  }, [projectId, navigate, user, toast]);
+  }, [projectId, ideaId, navigate, user, toast]);
 
   // Load idea details when ideaId is provided
   useEffect(() => {
@@ -98,167 +81,119 @@ export default function ProjectPlanning() {
       loadIdeaDetails(ideaId);
     }
   }, [ideaId, loadIdeaDetails]);
-
-  // Set the requirements when defaultRequirements changes
-  useEffect(() => {
-    if (defaultRequirements) {
-      console.log('ProjectPlanning: Setting default requirements');
-      setRequirements(defaultRequirements);
-    }
-  }, [defaultRequirements]);
   
-  const handleGeneratePlan = async () => {
-    if (!requirements) {
-      setError('Please enter project requirements');
-      toast({
-        title: 'Missing information',
-        description: 'Please enter project requirements',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    try {
-      console.log('Generating plan with planning type:', planningType);
-      const response = await generatePlan(
-        requirements, 
-        planningType as 'timeline' | 'resources' | 'technical' | 'general'
-      );
-      
-      if (response && response.plan) {
-        toast({
-          title: 'Plan generated',
-          description: `Generated with ${response.plan.model || 'AI'}. ${response.credits_remaining} credits remaining.`,
-        });
-      } else {
-        throw new Error('Invalid response format');
-      }
-      
-    } catch (error: any) {
-      console.error('Error generating plan:', error);
-      setError(error.message);
-      toast({
-        title: 'Error generating plan',
-        description: error.message || 'Failed to generate project plan',
-        variant: 'destructive',
-      });
+  // Handle document update from tabs component
+  const handleUpdateDocument = (content: string) => {
+    setDocumentContent(content);
+    setLastUpdated(new Date());
+  };
+  
+  // Navigate to project planning
+  const handleProceedToVisualPlanning = () => {
+    if (projectId) {
+      navigate(`/projects/${projectId}/visual-planning`);
+    } else {
+      // If no project yet, start project formation from this research
+      navigate(`/projects/formation?ideaId=${ideaId}`);
     }
   };
   
+  const handleCreateInLovable = () => {
+    toast({
+      title: "Lovable.dev integration",
+      description: "Creating project in Lovable.dev will be available soon",
+    });
+  };
+
   if (loading) return <div className="flex justify-center p-8">Loading project data...</div>;
-  if (error && !project) return <div className="flex justify-center p-8">Error: {error}</div>;
-  if (!project) return <div className="flex justify-center p-8">No project found</div>;
+  
+  // Only check for project if projectId was provided
+  if (projectId && error && !project) return <div className="flex justify-center p-8">Error: {error}</div>;
+  if (projectId && !project) return <div className="flex justify-center p-8">No project found</div>;
   
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Project Planning for {project.title}</h1>
-      
+    <div className="max-w-6xl mx-auto py-8 px-4 space-y-8">
       {profile?.subscription_tier === 'premium' && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md p-4 mb-6">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md p-4">
           <p className="text-blue-700">
             <span className="font-medium">Premium Feature: </span>
-            Your plan includes access to Claude's Extended Thinking mode, which provides deeper analysis and step-by-step reasoning for better project planning.
+            Your plan includes access to enhanced AI planning features with integration capabilities.
           </p>
         </div>
       )}
       
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Project Plan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Planning Type
-                </label>
-                <Tabs value={planningType} onValueChange={setPlanningType} className="w-full">
-                  <TabsList className="grid grid-cols-3 mb-4">
-                    <TabsTrigger value="timeline">Timeline & Milestones</TabsTrigger>
-                    <TabsTrigger value="resources">Resource Planning</TabsTrigger>
-                    <TabsTrigger value="technical">Technical Architecture</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="timeline">
-                    <p className="text-sm text-gray-500 mb-2">
-                      Generate a project timeline with key milestones, deadlines, and dependencies.
-                    </p>
-                  </TabsContent>
-                  
-                  <TabsContent value="resources">
-                    <p className="text-sm text-gray-500 mb-2">
-                      Plan required resources, team roles, skills, and budget allocations.
-                    </p>
-                  </TabsContent>
-                  
-                  <TabsContent value="technical">
-                    <p className="text-sm text-gray-500 mb-2">
-                      Create a technical architecture plan including components, technologies, and implementation approach.
-                    </p>
-                  </TabsContent>
-                </Tabs>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Requirements
-                </label>
-                <Textarea
-                  value={requirements}
-                  onChange={(e) => setRequirements(e.target.value)}
-                  rows={8}
-                  placeholder="Describe your project requirements, goals, constraints, and any other relevant details..."
-                  className="mb-2"
-                />
-                <p className="text-xs text-gray-500">
-                  The more details you provide, the more accurate your project plan will be.
-                </p>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-500">
-                  Credits available: {profile?.credits_remaining || 0}
-                </p>
-                <Button
-                  onClick={handleGeneratePlan}
-                  disabled={isGenerating || !requirements}
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Plan'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <PlanningTabs 
+            projectId={projectId || ''} 
+            ideaId={ideaId || undefined}
+            onUpdateDocument={handleUpdateDocument}
+          />
+        </div>
         
-        {planResult && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between">
-                <span>Project Plan</span>
-                <AIModelIndicator 
-                  model={planResult.model} 
-                  features={{ extendedThinking: planResult.extendedThinking }}
-                />
-              </CardTitle>
+        <div className="lg:col-span-1">
+          {documentContent ? (
+            <PlanningDocument 
+              content={documentContent} 
+              lastUpdated={lastUpdated}
+              projectId={projectId}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Planning Document</CardTitle>
+                <CardDescription>
+                  Your project planning document will appear here as you generate or edit content.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="border border-dashed rounded-md p-8 text-center text-gray-500">
+                  <p>Generate content using the planning tabs to populate this document.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Next Steps</CardTitle>
+              <CardDescription>
+                Continue your project journey with these options
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              {planResult.extendedThinking && planResult.thinking && (
-                <ExtendedThinkingDisplay thinking={planResult.thinking} />
-              )}
+            <CardContent className="space-y-4">
+              <Button 
+                className="w-full justify-between"
+                variant="outline"
+                onClick={handleProceedToVisualPlanning}
+              >
+                <div className="flex items-center">
+                  <Layout className="h-4 w-4 mr-2" />
+                  <span>Visual Planning</span>
+                </div>
+                <ChevronRightIcon className="h-4 w-4" />
+              </Button>
               
-              <div className="prose prose-blue max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: planResult.content }} />
-              </div>
+              <Button 
+                className="w-full justify-between"
+                variant="outline"
+                onClick={handleCreateInLovable}
+              >
+                <span>Create in Lovable</span>
+                <ChevronRightIcon className="h-4 w-4" />
+              </Button>
               
-              <div className="mt-6 flex justify-end">
-                <Button variant="outline" onClick={() => generatePlan('', 'general')}>
-                  Generate Another Plan
-                </Button>
-              </div>
+              <Button 
+                className="w-full justify-between"
+                variant="outline"
+                onClick={() => navigate('/ideas')}
+              >
+                <span>Return to Ideas Hub</span>
+                <ChevronRightIcon className="h-4 w-4" />
+              </Button>
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </div>
   );

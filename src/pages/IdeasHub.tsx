@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,8 +12,11 @@ import { supabase } from '@/integrations/supabase/client';
 export default function IdeasHub() {
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openNewIdeaModal, setOpenNewIdeaModal] = useState(false);
+  const [useAIGeneration, setUseAIGeneration] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchRecentProjects = async () => {
@@ -56,7 +59,7 @@ export default function IdeasHub() {
           </div>
         </div>
         
-        <div className="flex gap-3">
+        <div>
           <Button 
             variant="outline" 
             onClick={() => navigate('/projects')}
@@ -64,66 +67,12 @@ export default function IdeasHub() {
             <FolderClosed className="h-4 w-4 mr-2" />
             View Projects
           </Button>
-          <Button 
-            onClick={() => navigate('/projects/new')}
-          >
-            <Lightbulb className="h-4 w-4 mr-2" />
-            Start New Project
-          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="ideas" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="ideas">All Ideas</TabsTrigger>
-          <TabsTrigger value="projects">Recent Projects</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="ideas">
-          <IdeasDashboard />
-        </TabsContent>
-        
-        <TabsContent value="projects">
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : recentProjects.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {recentProjects.map((project) => (
-                <Card 
-                  key={project.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
-                  <CardContent className="pt-6">
-                    <h3 className="font-medium text-lg mb-1">{project.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Updated {new Date(project.updated_at).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-              
-              <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow border-dashed flex items-center justify-center"
-                onClick={() => navigate('/projects')}
-              >
-                <CardContent className="text-center py-10">
-                  <p className="text-muted-foreground">View all projects</p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <p className="text-muted-foreground mb-4">No projects created yet</p>
-                <Button onClick={() => navigate('/projects/new')}>Create Your First Project</Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      <div className="mt-4">
+        <IdeasDashboard />
+      </div>
     </div>
   );
 }

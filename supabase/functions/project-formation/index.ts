@@ -57,7 +57,7 @@ serve(async (req) => {
       promptContent += `## Market Research\n${research.ai_analysis || research.content || 'No analysis provided'}\n\n`;
     }
     
-    promptContent += "Please suggest a project name, description, goals, and key features that would make this a successful SaaS application. Format your response with clear sections for each of these elements.";
+    promptContent += "Please suggest the following for this project, with clearly labeled sections:\n\n1. Project Name\n2. Description\n3. Goals\n4. Key Features (list at least 5 features that would make this a successful SaaS application)\n5. Additional Considerations (technical challenges, market considerations, potential risks)\n\nFormat your response with clear section headings and detailed content for each section.";
     
     // Choose the model based on user's subscription tier
     const model = userTier === 'premium' ? 'gpt-4o' : 'gpt-4o-mini';

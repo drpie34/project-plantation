@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -8,18 +7,27 @@ const Index = () => {
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to dashboard
+  // For debugging - add console logs
+  console.log("Index component rendering");
+  console.log("Auth state:", { isAuthenticated, loading });
+
+  // Comment out the redirect for debugging
+  /*
   if (isAuthenticated) {
     navigate('/dashboard');
     return null;
   }
+  */
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <div>
-            <Logo size="xl" />
+            {/* Use a text fallback to avoid image loading issues */}
+            <div className="text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>
+              App Whisperer
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <Button 
@@ -80,7 +88,7 @@ const Index = () => {
       <footer className="bg-gray-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <Logo size="xl" className="mx-auto mb-4" />
+            <div className="text-2xl font-bold mb-4">App Whisperer</div>
             <p className="mt-2 text-gray-300">
               Powered by GPT-4o-mini
             </p>
