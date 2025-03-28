@@ -34,7 +34,6 @@ import {
 import { Project, Idea } from '@/types/supabase';
 import ProjectSharingDialog from '@/components/Collaboration/ProjectSharingDialog';
 import CollaborationTabs from '@/components/Collaboration/CollaborationTabs';
-import InterconnectivitySection from '@/components/DragDrop/InterconnectivitySection';
 
 interface ProjectWithCollaboration {
   id: string;
@@ -318,10 +317,6 @@ export default function ProjectDetail() {
               </div>
             </CardContent>
           </Card>
-
-          {ideas.length > 0 && (
-            <InterconnectivitySection projectId={projectId || ''} ideas={ideas} />
-          )}
 
           <CollaborationTabs projectId={projectId || ''} />
         </TabsContent>
