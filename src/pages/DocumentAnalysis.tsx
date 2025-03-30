@@ -22,6 +22,8 @@ import { ExtendedThinkingDisplay } from '@/components/ExtendedThinkingDisplay';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useDocumentAnalysis } from '@/hooks/useDocumentAnalysis';
+import { documentGenerationService } from '@/services/documentGenerationService';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function DocumentAnalysis() {
   const { projectId } = useParams();
@@ -51,7 +53,107 @@ export default function DocumentAnalysis() {
     }
     
     try {
-      await analyzeContent(documentContent, analysisType);
+      // Analyze the document content
+      const analysisResult = await analyzeContent(documentContent, analysisType);
+      
+      // Automatically generate and save document to document hub
+      if (projectId && profile?.id && analysisResult) {
+        try {
+          console.log('Automatically generating design & development document with data:', 
+            JSON.stringify({
+              projectId, 
+              userId: profile.id,
+              analysisType,
+              contentLength: documentContent.length,
+              resultLength: analysisResult.content.length
+            })
+          );
+          
+          // Create design data object from analysis result
+          const designData = {
+            analysisType,
+            originalContent: documentContent,
+            analysisResult: analysisResult.content,
+            // Add specific categories based on analysis type
+            ...(analysisType === 'requirements' && { 
+              uiDesign: 'Extracted from requirements analysis',
+              architecture: analysisResult.content 
+            }),
+            ...(analysisType === 'competitive' && { 
+              competitiveInsights: analysisResult.content 
+            }),
+            ...(analysisType === 'general' && { 
+              generalAnalysis: analysisResult.content 
+            })
+          };
+          
+          // Create document immediately (no wait)
+          documentGenerationService.createDesignDevelopmentDocument(
+            profile.id,
+            projectId,
+            designData
+          );
+          
+          // Also make a direct insert to ensure it's created
+          const documentTitle = `Document Analysis (${analysisType}) - ${new Date().toLocaleDateString()}`;
+          const { error: directInsertError } = await supabase
+            .from('documents')
+            .insert({
+              title: documentTitle,
+              type: 'design_development',
+              content: analysisResult.content,
+              user_id: profile.id,
+              project_id: projectId,
+              is_auto_generated: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            
+          if (directInsertError) {
+            console.error('Direct insertion error:', directInsertError);
+            // Try upsert if insert fails
+            const { error: upsertError } = await supabase
+              .from('documents')
+              .upsert({
+                title: documentTitle,
+                type: 'design_development',
+                content: analysisResult.content,
+                user_id: profile.id,
+                project_id: projectId,
+                is_auto_generated: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+              
+            if (upsertError) {
+              console.error('Upsert also failed:', upsertError);
+            }
+          }
+          
+          // Also save to localStorage as backup
+          localStorage.setItem(
+            `document_${projectId}_design_development`, 
+            analysisResult.content
+          );
+          
+          console.log('Design & Development document added to Document Hub through multiple methods');
+          
+          // Show a specific toast about document creation
+          toast({
+            title: "Document Created",
+            description: "Analysis has been saved to the Document Hub",
+          });
+        } catch (docError) {
+          console.error('Error auto-generating design & development document:', docError);
+          
+          // Save to localStorage as fallback
+          localStorage.setItem(
+            `document_${projectId}_design_development`, 
+            analysisResult.content
+          );
+          console.log('Saved to localStorage as fallback due to error');
+        }
+      }
       
       toast({
         title: 'Analysis completed',

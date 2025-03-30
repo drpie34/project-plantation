@@ -156,32 +156,52 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
       const keyFeaturesMatch = result.content.match(/Key Features:?(.+?)(?:\n\n|\n#|$)/is);
       const additionalConsiderationsMatch = result.content.match(/Additional Considerations:?(.+?)(?:\n\n|\n#|$)/is);
       
-      if (nameMatch && nameMatch[1].trim()) {
-        setProjectName(nameMatch[1].trim());
+      // Create a function to update and log individual fields
+      const updateField = (match: RegExpMatchArray | null, fieldName: string, setterFn: (value: string) => void) => {
+        if (match && match[1].trim()) {
+          const value = match[1].trim();
+          console.log(`Updating ${fieldName} with value: ${value.substring(0, 50)}...`);
+          setterFn(value);
+          return true;
+        }
+        return false;
+      };
+      
+      // Sequential updates with small delay to ensure all state updates are applied
+      let delay = 0;
+      const delayStep = 50; // 50ms between each update
+      
+      if (updateField(nameMatch, 'projectName', setProjectName)) {
+        delay += delayStep;
+        setTimeout(() => updateProjectDocument(), delay);
       }
       
-      if (descMatch && descMatch[1].trim()) {
-        setProjectDescription(descMatch[1].trim());
+      if (updateField(descMatch, 'projectDescription', setProjectDescription)) {
+        delay += delayStep;
+        setTimeout(() => updateProjectDocument(), delay);
       }
       
-      if (goalsMatch && goalsMatch[1].trim()) {
-        setProjectGoals(goalsMatch[1].trim());
+      if (updateField(goalsMatch, 'projectGoals', setProjectGoals)) {
+        delay += delayStep;
+        setTimeout(() => updateProjectDocument(), delay);
       }
       
-      if (keyFeaturesMatch && keyFeaturesMatch[1].trim()) {
-        setKeyFeatures(keyFeaturesMatch[1].trim());
+      if (updateField(keyFeaturesMatch, 'keyFeatures', setKeyFeatures)) {
+        delay += delayStep;
+        setTimeout(() => updateProjectDocument(), delay);
       }
       
-      if (additionalConsiderationsMatch && additionalConsiderationsMatch[1].trim()) {
-        setAdditionalConsiderations(additionalConsiderationsMatch[1].trim());
+      if (updateField(additionalConsiderationsMatch, 'additionalConsiderations', setAdditionalConsiderations)) {
+        delay += delayStep;
+        setTimeout(() => updateProjectDocument(), delay);
       }
       
-      // Update document content automatically
+      // Final document update and save
       setTimeout(() => {
         updateProjectDocument();
-        // Also save the draft automatically
         handleSaveDraft();
-      }, 100);
+        console.log('Document updates and save complete');
+      }, delay + delayStep);
       
     } catch (error: any) {
       console.error('Error generating project suggestion:', error);
@@ -213,41 +233,18 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
     }
     
     // Make sure the document is updated with the latest content
-    updateProjectDocument();
-    
-    // Force a small delay to ensure state is updated
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const finalContent = updateProjectDocument();
     
     setIsSaving(true);
     let newProjectId = null;
     
     try {
-      // Prepare description that includes key information
-      let enhancedDescription = projectDescription || '';
-      
-      // Add a summary of goals and features to the description
-      if (projectGoals || keyFeatures || additionalConsiderations) {
-        enhancedDescription += '\n\n';
-        
-        if (projectGoals) {
-          enhancedDescription += '**Goals:**\n' + projectGoals + '\n\n';
-        }
-        
-        if (keyFeatures) {
-          enhancedDescription += '**Key Features:**\n' + keyFeatures + '\n\n';
-        }
-        
-        if (additionalConsiderations) {
-          enhancedDescription += '**Additional Considerations:**\n' + additionalConsiderations;
-        }
-      }
-      
       // STEP 1: Create the project directly with Supabase
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert({
           title: projectName,
-          description: enhancedDescription,
+          description: projectDescription, // Use the raw description, not enhanced
           user_id: user.id,
           stage: 'planning',
           created_at: new Date().toISOString(),
@@ -284,52 +281,48 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
       
       // Use our documentService to create a document
       try {
-        // Create the document
+        // Create the document with the latest content
+        const now = new Date().toISOString();
         const documentParams = {
-          title: `${projectName} - Overview`,
+          title: 'Project Overview',
           type: 'project_overview' as const,
-          content: documentContent,
+          content: finalContent,
           user_id: user.id,
           project_id: newProjectId,
-          is_auto_generated: true
+          is_auto_generated: true,
+          created_at: now,
+          updated_at: now
         };
         
         // Debug the document content
         console.log('==== DEBUG: Document creation ====');
         console.log('Project ID:', newProjectId);
         console.log('User ID:', user.id);
-        console.log('Document title:', `${projectName} - Overview`);
-        console.log('Content length:', documentContent.length);
-        console.log('Content snippet:', documentContent.substring(0, 150) + '...');
+        console.log('Document title:', 'Project Overview');
+        console.log('Content length:', finalContent.length);
+        console.log('Content snippet:', finalContent.substring(0, 150) + '...');
         console.log('==== END DEBUG ====');
         
-        // Log document creation attempt
-        console.log('Creating document with params:', JSON.stringify(documentParams, null, 2));
-        
+        // Create the document
         const newDocument = await documentService.createDocument(documentParams);
         
-        if (newDocument) {
-          console.log('==== SUCCESS: Document created ====');
-          console.log('Document ID:', newDocument.id);
-          console.log('Document in database:', JSON.stringify({
-            id: newDocument.id,
-            title: newDocument.title,
-            projectId: newDocument.project_id,
-            type: newDocument.type,
-            isAutoGenerated: newDocument.is_auto_generated
-          }));
-          console.log('==== END SUCCESS ====');
-        } else {
-          console.warn('Document creation returned null - fallback to localStorage');
-          // The documentService already handles localStorage fallback internally
+        if (!newDocument) {
+          throw new Error('Failed to create project overview document');
         }
+        
+        console.log('==== SUCCESS: Document created ====');
+        console.log('Document ID:', newDocument.id);
+        console.log('==== END SUCCESS ====');
+        
       } catch (documentError) {
         console.error('Document creation failed:', documentError);
         handleError('ProjectFormation', 'handleCreateProject', documentError, { 
           step: 'document_creation',
           projectId: newProjectId
-        }, false); // Don't show a toast for this
-        // Continue anyway - we'll at least try to save to localStorage next
+        }, false);
+        
+        // Save to localStorage as fallback
+        localStorage.setItem(`document_${newProjectId}_project_overview`, finalContent);
       }
       
       // Success path
@@ -338,19 +331,12 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
         description: 'Project created successfully',
       });
       
-      // Save document to localStorage as an additional backup
-      try {
-        localStorage.setItem(`project_document_${newProjectId}`, documentContent);
-      } catch (storageError) {
-        console.error('Error saving to localStorage:', storageError);
-      }
-      
-      // STEP 4: Navigate to project page
+      // Navigate to project page with overview tab active
       setTimeout(() => {
-        navigate(`/projects/${newProjectId}`);
+        navigate(`/projects/${newProjectId}?tab=overview`);
       }, 500);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in project creation process:', error);
       
       toast({
@@ -376,23 +362,37 @@ export default function ProjectFormation({ ideaId, researchId }: ProjectFormatio
   }
   
   function updateProjectDocument() {
+    // Create a complete document with section markers
+    // IMPORTANT: This EXACT format is used to parse sections in ProjectDetail.tsx
+    // DO NOT change whitespace or formatting between markers!!
     const content = `# ${projectName || 'Project Plan'}
 
-## Description
+<!-- SECTION:description -->
 ${projectDescription || 'No description provided yet.'}
+<!-- END:description -->
 
-## Goals
+<!-- SECTION:goals -->
 ${projectGoals || 'No goals defined yet.'}
+<!-- END:goals -->
 
-## Key Features
+<!-- SECTION:features -->
 ${keyFeatures || 'No key features defined yet.'}
+<!-- END:features -->
 
-## Additional Considerations
+<!-- SECTION:considerations -->
 ${additionalConsiderations || 'No additional considerations defined yet.'}
-`;
+<!-- END:considerations -->`;
 
+    // Log the content length and a preview to help with debugging
+    console.log(`updateProjectDocument: Content updated (${content.length} chars)`);
+    console.log(`Content preview: ${content.substring(0, 150)}...`);
+
+    // Update state with the new content
     setDocumentContent(content);
     setDocumentLastUpdated(new Date());
+    
+    // Return the content so it can be used directly when needed
+    return content;
   }
 
   async function handleSaveDraft() {
@@ -699,6 +699,11 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
                               });
                               
                               setProjectDescription(result.content.trim());
+                              
+                              // Immediately update the document to reflect changes
+                              setTimeout(() => {
+                                updateProjectDocument();
+                              }, 50);
                             } catch (error) {
                               console.error('Error generating with AI:', error);
                               toast({
@@ -801,6 +806,11 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
                               });
                               
                               setProjectGoals(result.content.trim());
+                              
+                              // Immediately update the document to reflect changes
+                              setTimeout(() => {
+                                updateProjectDocument();
+                              }, 50);
                             } catch (error) {
                               console.error('Error generating with AI:', error);
                               toast({
@@ -905,6 +915,11 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
                               });
                               
                               setKeyFeatures(result.content.trim());
+                              
+                              // Immediately update the document to reflect changes
+                              setTimeout(() => {
+                                updateProjectDocument();
+                              }, 50);
                             } catch (error) {
                               console.error('Error generating with AI:', error);
                               toast({
@@ -1011,6 +1026,11 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
                               });
                               
                               setAdditionalConsiderations(result.content.trim());
+                              
+                              // Immediately update the document to reflect changes
+                              setTimeout(() => {
+                                updateProjectDocument();
+                              }, 50);
                             } catch (error) {
                               console.error('Error generating with AI:', error);
                               toast({
@@ -1039,50 +1059,7 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
               </div>
               
               
-              {/* Project Document Preview */}
-              {documentContent && (
-                <div className="mt-6 space-y-4">
-                  <Separator />
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Project Document</h3>
-                    {documentLastUpdated && (
-                      <span className="text-sm text-gray-500">
-                        Last updated: {documentLastUpdated.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="prose prose-blue max-w-none border rounded-md p-4 bg-blue-50 relative">
-                    <div className="absolute top-2 right-2 flex space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => {
-                        // Copy to clipboard
-                        navigator.clipboard.writeText(documentContent);
-                        toast({
-                          title: 'Copied',
-                          description: 'Document copied to clipboard',
-                        });
-                      }}>
-                        Copy
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        // Create download link
-                        const blob = new Blob([documentContent], { type: 'text/markdown' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${projectName || 'project'}_plan.md`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }}>
-                        Download
-                      </Button>
-                    </div>
-                    <div dangerouslySetInnerHTML={{ __html: documentContent.replace(/\n/g, '<br/>') }} />
-                  </div>
-                </div>
-              )}
+              {/* Document preview has been removed as requested */}
               
               {suggestedProject && !documentContent && (
                 <div className="mt-6 space-y-4">
@@ -1102,17 +1079,6 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
             Back to Ideas
           </Button>
           <div>
-            <Button 
-              variant="outline" 
-              className="mr-2" 
-              onClick={() => {
-                updateProjectDocument();
-                handleSaveDraft();
-              }} 
-              disabled={isSaving}
-            >
-              {documentContent ? 'Update Document' : 'Generate Document'}
-            </Button>
             <Button 
               onClick={handleCreateProject} 
               disabled={isSaving || !projectName.trim()}

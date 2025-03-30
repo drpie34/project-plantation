@@ -6,3 +6,4 @@ export * from './PageHeader';
 export * from './EmptyState';
 export * from './ErrorDisplay';
 export * from './TabSystem';
+export * from './EmbeddedPage';

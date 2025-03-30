@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, HTMLAttributes } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 type CardContainerProps = {
@@ -10,7 +10,8 @@ type CardContainerProps = {
   headerClassName?: string;
   contentClassName?: string;
   footerClassName?: string;
-};
+  onClick?: () => void;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'className'>;
 
 /**
  * A consistent card container component used throughout the application
@@ -23,10 +24,16 @@ export const CardContainer = ({
   className = '',
   headerClassName = '',
   contentClassName = '',
-  footerClassName = ''
+  footerClassName = '',
+  onClick,
+  ...rest
 }: CardContainerProps) => {
   return (
-    <Card className={`shadow-sm ${className}`}>
+    <Card 
+      className={`shadow-sm ${className}`} 
+      onClick={onClick}
+      {...rest}
+    >
       {(title || description) && (
         <CardHeader className={headerClassName}>
           {title && <CardTitle>{title}</CardTitle>}

@@ -110,8 +110,14 @@ const DashboardLayout = () => {
 
       {/* Sidebar and main content */}
       <div className="flex-1 flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <div className="bg-white w-full md:w-64 shadow-sm p-4 md:p-6">
+        {/* Sidebar - hidden for routes that shouldn't show it */}
+        <div className={`bg-white w-full md:w-64 shadow-sm p-4 md:p-6 ${
+          location.pathname.includes('/market-research') ||
+          location.pathname.includes('/planning') ||
+          location.pathname.includes('/visual-planning') ||
+          location.pathname.includes('/document-analysis')
+          ? 'hidden' : ''
+        }`}>
           <nav className="space-y-2">
             <Button 
               variant={isActive('/dashboard') ? "default" : "ghost"}
@@ -141,7 +147,13 @@ const DashboardLayout = () => {
         </div>
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-8">
+        <main className={`flex-1 p-4 md:p-8 ${
+          location.pathname.includes('/market-research') ||
+          location.pathname.includes('/planning') ||
+          location.pathname.includes('/visual-planning') ||
+          location.pathname.includes('/document-analysis')
+          ? 'w-full' : ''
+        }`}>
           <Outlet />
         </main>
       </div>

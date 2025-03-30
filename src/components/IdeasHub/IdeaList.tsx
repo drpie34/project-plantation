@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Idea, IdeaCategory } from '@/types/supabase';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Table,
   TableBody,
@@ -39,7 +40,11 @@ export default function IdeaList({ ideas, categories, onUpdate }: IdeaListProps)
   };
   
   function handleViewDetails(idea: Idea) {
-    navigate(`/projects/${idea.project_id}/ideas/${idea.id}`);
+    navigate(`/ideas/${idea.id}`);
+  }
+  
+  function handleStartProject(idea: Idea) {
+    navigate(`/projects/formation?ideaId=${idea.id}`);
   }
   
   return (
@@ -99,21 +104,29 @@ export default function IdeaList({ ideas, categories, onUpdate }: IdeaListProps)
                         <Edit className="mr-2 h-4 w-4" />
                         <span>View & Edit</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/projects/${idea.project_id}/market-research?ideaId=${idea.id}`)}>
+                      <DropdownMenuItem onClick={() => handleStartProject(idea)}>
                         <ArrowRight className="mr-2 h-4 w-4" />
-                        <span>Research Market</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/projects/${idea.project_id}/planning?ideaId=${idea.id}`)}>
-                        <ArrowRight className="mr-2 h-4 w-4" />
-                        <span>Create Project Plan</span>
+                        <span>Start Project</span>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       className="text-red-600 focus:text-red-600"
-                      onClick={() => {
-                        // Handle delete logic would go here
-                        console.log('Delete:', idea.id);
+                      onClick={async () => {
+                        try {
+                          // Use the same delete logic as in IdeaCard
+                          const { error } = await supabase
+                            .from('ideas')
+                            .delete()
+                            .eq('id', idea.id);
+                          
+                          if (error) throw error;
+                          
+                          // Trigger refresh of ideas list
+                          onUpdate();
+                        } catch (error) {
+                          console.error('Error deleting idea:', error);
+                        }
                       }}
                     >
                       <Trash className="mr-2 h-4 w-4" />

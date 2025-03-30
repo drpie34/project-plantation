@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useProjectPlanning } from '@/hooks/useProjectPlanning';
+import { documentGenerationService } from '@/services/documentGenerationService';
 import PlanningTabs from '@/components/ProjectPlanning/PlanningTabs';
 import PlanningDocument from '@/components/ProjectPlanning/PlanningDocument';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -83,9 +84,94 @@ export default function ProjectPlanning() {
   }, [ideaId, loadIdeaDetails]);
   
   // Handle document update from tabs component
-  const handleUpdateDocument = (content: string) => {
+  const handleUpdateDocument = async (content: string, planningData: any = {}) => {
     setDocumentContent(content);
     setLastUpdated(new Date());
+    
+    // Display a toast notification to inform the user
+    toast({
+      title: "Document Updated",
+      description: "Your project planning has been saved to the Document Hub",
+    });
+    
+    // Ensure document is created in the Document Hub
+    if (projectId && user?.id) {
+      try {
+        console.log('Automatically generating project planning document with data:', 
+          JSON.stringify({
+            projectId, 
+            userId: user.id,
+            contentLength: content.length,
+            dataKeys: Object.keys(planningData)
+          })
+        );
+        
+        // Create planning data object from content and planningData
+        const completeData = {
+          ...planningData,
+          // Add full content as fallback if specific sections are missing
+          fullContent: content
+        };
+        
+        // Create document immediately (no wait)
+        documentGenerationService.createProjectPlanningDocument(
+          user.id,
+          projectId,
+          completeData
+        );
+        
+        // Also make a direct insert to ensure it's created
+        const { error: directInsertError } = await supabase
+          .from('documents')
+          .insert({
+            title: `Project Plan - ${new Date().toLocaleDateString()}`,
+            type: 'project_planning',
+            content: content,
+            user_id: user.id,
+            project_id: projectId,
+            is_auto_generated: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (directInsertError) {
+          console.error('Direct insertion error:', directInsertError);
+          // Try upsert if insert fails
+          const { error: upsertError } = await supabase
+            .from('documents')
+            .upsert({
+              title: `Project Plan - ${new Date().toLocaleDateString()}`,
+              type: 'project_planning',
+              content: content,
+              user_id: user.id,
+              project_id: projectId,
+              is_auto_generated: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            
+          if (upsertError) {
+            console.error('Upsert also failed:', upsertError);
+          }
+        }
+        
+        // Also save to localStorage as backup
+        localStorage.setItem(
+          `document_${projectId}_project_planning`, 
+          content
+        );
+        
+        console.log('Project planning document added to Document Hub through multiple methods');
+      } catch (error) {
+        console.error('Error auto-generating project planning document:', error);
+        
+        // Save to localStorage as fallback
+        localStorage.setItem(`document_${projectId}_project_planning`, content);
+        console.log('Saved to localStorage as fallback due to error');
+      }
+    } else {
+      console.log('Cannot auto-generate document: missing project ID or user ID');
+    }
   };
   
   // Navigate to project planning
@@ -122,78 +208,61 @@ export default function ProjectPlanning() {
         </div>
       )}
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <PlanningTabs 
-            projectId={projectId || ''} 
-            ideaId={ideaId || undefined}
-            onUpdateDocument={handleUpdateDocument}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-6">
+        <PlanningTabs 
+          projectId={projectId || ''} 
+          ideaId={ideaId || undefined}
+          onUpdateDocument={handleUpdateDocument}
+        />
         
-        <div className="lg:col-span-1">
-          {documentContent ? (
-            <PlanningDocument 
-              content={documentContent} 
-              lastUpdated={lastUpdated}
-              projectId={projectId}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Planning Document</CardTitle>
-                <CardDescription>
-                  Your project planning document will appear here as you generate or edit content.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border border-dashed rounded-md p-8 text-center text-gray-500">
-                  <p>Generate content using the planning tabs to populate this document.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Next Steps</CardTitle>
-              <CardDescription>
-                Continue your project journey with these options
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button 
-                className="w-full justify-between"
-                variant="outline"
-                onClick={handleProceedToVisualPlanning}
-              >
-                <div className="flex items-center">
-                  <Layout className="h-4 w-4 mr-2" />
-                  <span>Visual Planning</span>
-                </div>
-                <ChevronRightIcon className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                className="w-full justify-between"
-                variant="outline"
-                onClick={handleCreateInLovable}
-              >
-                <span>Create in Lovable</span>
-                <ChevronRightIcon className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                className="w-full justify-between"
-                variant="outline"
-                onClick={() => navigate('/ideas')}
-              >
-                <span>Return to Ideas Hub</span>
-                <ChevronRightIcon className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Next Steps</CardTitle>
+            <CardDescription>
+              Content from your planning is automatically saved to the Document Hub
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              className="w-full justify-between"
+              variant="outline"
+              onClick={handleProceedToVisualPlanning}
+            >
+              <div className="flex items-center">
+                <Layout className="h-4 w-4 mr-2" />
+                <span>Visual Planning</span>
+              </div>
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+            
+            <Button 
+              className="w-full justify-between"
+              variant="outline"
+              onClick={handleCreateInLovable}
+            >
+              <span>Create in Lovable</span>
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+            
+            <Button 
+              className="w-full justify-between"
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}`)}
+            >
+              <span>Return to Project Overview</span>
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+            
+            <Button 
+              className="w-full justify-between"
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}?tab=document-hub`)}
+            >
+              <span>View in Document Hub</span>
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

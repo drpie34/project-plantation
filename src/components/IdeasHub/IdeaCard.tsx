@@ -44,7 +44,9 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
     transform,
     transition,
     isDragging
-  } = useSortable({ id: idea.id });
+  } = useSortable({ 
+    id: idea.id,
+  });
   
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -65,22 +67,24 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
   }
   
   function handleStartProject() {
-    // Navigate to project formation with this idea pre-selected
     navigate(`/projects/formation?ideaId=${idea.id}`);
   }
   
   return (
     <div ref={setNodeRef} style={style} className="relative">
       <Card className="h-full flex flex-col hover:shadow-md transition-shadow">
+        {/* Dedicated draggable area at the top of the card */}
         <div 
-          className="absolute top-3 right-10 cursor-grab active:cursor-grabbing z-10 text-gray-400 hover:text-gray-600 transition-colors" 
-          {...attributes} 
+          className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg cursor-move flex items-center justify-center"
+          {...attributes}
           {...listeners}
         >
-          <GripVertical className="h-5 w-5" />
+          <div className="flex items-center justify-center w-full h-full">
+            <div className="w-10 h-1 bg-blue-200 rounded-full"></div>
+          </div>
         </div>
         
-        <CardHeader className="pb-2">
+        <CardHeader className="pt-8 pb-2"> {/* Added padding to account for drag handle */}
           <div className="flex justify-between items-start">
             <div>
               <CardTitle 
@@ -96,7 +100,11 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
             
             <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0"
+                >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -115,7 +123,6 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
                 <DropdownMenuItem 
                   className="text-red-600 focus:text-red-600"
                   onClick={async () => {
-                    // Delete the idea from the database
                     try {
                       const { error } = await supabase
                         .from('ideas')
@@ -139,7 +146,11 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
           </div>
         </CardHeader>
         
-        <CardContent className="flex-grow">
+        {/* Clickable card content */}
+        <CardContent 
+          className="flex-grow cursor-pointer"
+          onClick={handleViewDetails}
+        >
           <p className="text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
           
           <div className="mt-4 flex flex-wrap gap-2">
@@ -162,7 +173,11 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
         </CardContent>
         
         <CardFooter className="pt-2 border-t flex justify-between">
-          <Button variant="ghost" size="sm" onClick={handleViewDetails}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleViewDetails}
+          >
             View Details
           </Button>
           <Button 

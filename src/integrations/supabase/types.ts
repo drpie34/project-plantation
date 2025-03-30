@@ -9,6 +9,66 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      documents: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          type: string
+          project_id: string
+          user_id: string
+          created_at: string
+          updated_at: string
+          is_auto_generated: boolean
+          file_path: string | null
+          file_type: string | null
+          file_size: number | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          type: string
+          project_id: string
+          user_id: string
+          created_at?: string
+          updated_at?: string
+          is_auto_generated?: boolean
+          file_path?: string | null
+          file_type?: string | null
+          file_size?: number | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          type?: string
+          project_id?: string
+          user_id?: string
+          created_at?: string
+          updated_at?: string
+          is_auto_generated?: boolean
+          file_path?: string | null
+          file_type?: string | null
+          file_size?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
       api_usage: {
         Row: {
           api_type: string

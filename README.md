@@ -67,3 +67,41 @@ Simply open [Lovable](https://lovable.dev/projects/fc36489b-3bf0-48f8-8a89-e4355
 ## I want to use a custom domain - is that possible?
 
 We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
+## Setting up the Documents Table in Supabase
+
+This project requires a `documents` table in Supabase for storing project documentation. Without it, the application will display an error and fall back to local storage mode, which means documents won't be available across different browsers or devices.
+
+**Direct Setup via Supabase Dashboard (Recommended):**
+
+1. Log in to your [Supabase Dashboard](https://app.supabase.com/)
+2. Select your project
+3. Go to the "SQL Editor" tab
+4. Create a new query
+5. Copy and paste the contents of `create-documents-table.sql` from this repository
+6. Click "Run" to execute the SQL
+
+This will create the documents table with proper structure and permissions.
+
+**Alternative Method (Advanced):**
+
+If you prefer to use the CLI or have admin access:
+
+```bash
+# Install Supabase CLI if needed
+npm install -g @supabase/cli
+
+# Login to Supabase
+supabase login
+
+# Run the SQL file against your project
+supabase db execute --project-ref YOUR_PROJECT_REF --file create-documents-table.sql
+```
+
+The documents table is essential for:
+- Storing project overviews and planning documents
+- Saving AI-generated analysis results
+- Maintaining user-uploaded documents
+- Keeping document data synchronized across devices
+
+Without proper setup, the application will fall back to local storage, which means documents won't be available across different devices or browsers.

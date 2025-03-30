@@ -475,17 +475,26 @@ export type UserActivity = {
   created_at: string;
 };
 
-export type Document = {
+export interface Document {
   id: string;
   title: string;
-  type: 'project_overview' | 'market_research' | 'project_planning' | 'design_development' | 'chat_transcript' | 'uploaded';
   content: string;
+  type: 
+    | 'project_overview'
+    | 'market_research'
+    | 'project_planning'
+    | 'design_development'
+    | 'chat_transcript'
+    | 'uploaded'
+    | 'project'
+    | 'project_description'
+    | 'project_goals'
+    | 'project_features'
+    | 'project_considerations';
+  project_id: string;
+  user_id: string;
   created_at: string;
   updated_at: string;
-  user_id: string;
-  project_id: string;
-  is_auto_generated?: boolean;
+  is_auto_generated: boolean;
   file_path?: string;
-  file_type?: string;
-  file_size?: number;
-};
+}
