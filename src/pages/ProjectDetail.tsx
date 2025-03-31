@@ -34,7 +34,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { TabSystem, TabItem, PageHeader, CardContainer, LoadingSpinner, StatusBadge, EmbeddedPage } from '@/components/common';
+import { TabSystem, TabItem, PageHeader, CardContainer, LoadingSpinner, StatusBadge } from '@/components/common';
 import { databaseService } from '@/services/databaseService';
 import { documentService } from '@/services/documentService';
 import { useErrorHandler } from '@/services/errorService';
@@ -42,9 +42,15 @@ import { UI_CONFIG } from '@/config';
 import { Project, Idea, Document } from '@/types/supabase';
 import ProjectSharingDialog from '@/components/Collaboration/ProjectSharingDialog';
 import CollaborationTabs from '@/components/Collaboration/CollaborationTabs';
-import DocumentHub from '@/components/DocumentHub/DocumentHub';
+import { lazy, Suspense } from 'react';
 import DocumentChat from '@/components/DocumentHub/DocumentChat';
 import { IdeasList } from '@/components/Ideas/IdeasList';
+
+// Lazy-load tab components
+const DocumentHub = lazy(() => import('@/components/DocumentHub/DocumentHub'));
+const MarketResearchTabs = lazy(() => import('@/components/MarketResearch/MarketResearchTabs'));
+const PlanningTabs = lazy(() => import('@/components/ProjectPlanning/PlanningTabs'));
+const VisualPlanningTabs = lazy(() => import('@/components/VisualPlanning/VisualPlanningTabs'));
 
 // Add legacy document types
 type LegacyDocumentType = 
@@ -1162,21 +1168,17 @@ ${sectionContent.considerations || 'No additional considerations defined yet.'}
       label: 'Market Research',
       icon: <BarChart className="h-4 w-4" />,
       content: (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Market Research</CardTitle>
-              <CardDescription>
-                Research and understand your market
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmbeddedPage 
-                url={`/projects/${projectId}/market-research`} 
-                height="800px"
-              />
-            </CardContent>
-          </Card>
+        <div className="w-full">
+          <Suspense fallback={<div className="flex justify-center py-8"><LoadingSpinner size="large" /></div>}>
+            <MarketResearchTabs 
+              projectId={projectId || ''} 
+              ideaId={undefined}
+              onUpdateDocument={(content) => {
+                // This will trigger a document refresh after updates
+                fetchDocuments();
+              }}
+            />
+          </Suspense>
         </div>
       )
     },
@@ -1185,21 +1187,17 @@ ${sectionContent.considerations || 'No additional considerations defined yet.'}
       label: 'Project Planning',
       icon: <FileSearch className="h-4 w-4" />,
       content: (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Planning</CardTitle>
-              <CardDescription>
-                Plan your project strategy and roadmap
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmbeddedPage 
-                url={`/projects/${projectId}/planning`} 
-                height="800px"
-              />
-            </CardContent>
-          </Card>
+        <div className="w-full">
+          <Suspense fallback={<div className="flex justify-center py-8"><LoadingSpinner size="large" /></div>}>
+            <PlanningTabs 
+              projectId={projectId || ''} 
+              ideaId={undefined}
+              onUpdateDocument={(content) => {
+                // This will trigger a document refresh after updates
+                fetchDocuments();
+              }}
+            />
+          </Suspense>
         </div>
       )
     },
@@ -1208,21 +1206,12 @@ ${sectionContent.considerations || 'No additional considerations defined yet.'}
       label: 'Design & Development',
       icon: <Code className="h-4 w-4" />,
       content: (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Design & Development</CardTitle>
-              <CardDescription>
-                Visualize and plan your project's structure
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmbeddedPage 
-                url={`/projects/${projectId}/visual-planning`} 
-                height="800px"
-              />
-            </CardContent>
-          </Card>
+        <div className="w-full">
+          <Suspense fallback={<div className="flex justify-center py-8"><LoadingSpinner size="large" /></div>}>
+            <VisualPlanningTabs 
+              projectId={projectId || ''}
+            />
+          </Suspense>
         </div>
       )
     },
@@ -1231,25 +1220,17 @@ ${sectionContent.considerations || 'No additional considerations defined yet.'}
       label: 'Document Hub',
       icon: <FileText className="h-4 w-4" />,
       content: (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Hub</CardTitle>
-              <CardDescription>
-                Manage and collaborate on project documents
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DocumentHub 
-                projectId={projectId || ''} 
-                documents={documents}
-                onUploadDocument={handleUploadDocument}
-                onDeleteDocument={handleDeleteDocument}
-                onDownloadDocument={handleDownloadDocument}
-                onStartChat={() => setShowDocumentChat(true)}
-              />
-            </CardContent>
-          </Card>
+        <div className="w-full">
+          <Suspense fallback={<div className="flex justify-center py-8"><LoadingSpinner size="large" /></div>}>
+            <DocumentHub 
+              projectId={projectId || ''} 
+              documents={documents}
+              onUploadDocument={handleUploadDocument}
+              onDeleteDocument={handleDeleteDocument}
+              onDownloadDocument={handleDownloadDocument}
+              onStartChat={() => setShowDocumentChat(true)}
+            />
+          </Suspense>
         </div>
       )
     }

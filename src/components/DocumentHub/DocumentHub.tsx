@@ -929,7 +929,7 @@ export default function DocumentHub({
                             return <p key={index} className="my-2">{line}</p>;
                           }
                         })}
-                  }
+                  
                 </div>
               )}
             </div>
