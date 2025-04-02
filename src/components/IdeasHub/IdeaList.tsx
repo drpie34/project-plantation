@@ -53,7 +53,6 @@ export default function IdeaList({ ideas, categories, onUpdate }: IdeaListProps)
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
             <TableHead>Tags</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -65,27 +64,15 @@ export default function IdeaList({ ideas, categories, onUpdate }: IdeaListProps)
               <TableCell className="font-medium cursor-pointer hover:text-primary" onClick={() => handleViewDetails(idea)}>
                 {idea.title}
               </TableCell>
-              <TableCell>
-                <Badge className={statusColors[idea.status] || 'bg-gray-100'}>
-                  {idea.status.charAt(0).toUpperCase() + idea.status.slice(1)}
-                </Badge>
-              </TableCell>
               <TableCell>{format(new Date(idea.created_at), 'MMM d, yyyy')}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                <div className="flex flex-wrap gap-1 max-w-[300px]">
                   {idea.tags && idea.tags.length > 0 ? (
-                    <>
-                      {idea.tags.slice(0, 2).map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs py-0">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {idea.tags.length > 2 && (
-                        <Badge variant="outline" className="text-xs py-0">
-                          +{idea.tags.length - 2}
-                        </Badge>
-                      )}
-                    </>
+                    idea.tags.map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs py-0">
+                        {tag}
+                      </Badge>
+                    ))
                   ) : (
                     <span className="text-sm text-muted-foreground">No tags</span>
                   )}

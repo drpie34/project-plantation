@@ -11,6 +11,7 @@ export type DocumentCreateParams = {
   file_path?: string;
   file_type?: string;
   file_size?: number;
+  section_id?: string; // Add support for section_id
 };
 
 export type DocumentUpdateParams = Partial<Omit<Document, 'id' | 'created_at'>>;
@@ -42,7 +43,8 @@ function constructFallbackDocument(params: DocumentCreateParams): Document {
     is_auto_generated: params.is_auto_generated || false,
     file_path: params.file_path,
     file_type: params.file_type,
-    file_size: params.file_size
+    file_size: params.file_size,
+    section_id: params.section_id // Include section_id if provided
   };
 }
 
@@ -132,7 +134,8 @@ export const documentService = {
         is_auto_generated: data.is_auto_generated || false,
         file_path: data.file_path,
         file_type: data.file_type,
-        file_size: data.file_size
+        file_size: data.file_size,
+        section_id: data.section_id // Add section_id support
       };
     };
     
@@ -457,6 +460,7 @@ export const documentService = {
    * @private
    */
   getDocumentTitle(type: string): string {
+    // Handle main categories
     switch (type) {
       case 'project_overview': return 'Project Overview';
       case 'market_research': return 'Market Research';
@@ -464,7 +468,28 @@ export const documentService = {
       case 'design_development': return 'Design & Development';
       case 'chat_transcript': return 'Chat Transcript';
       case 'uploaded': return 'Uploaded Document';
-      default: return `Document - ${type.replace('_', ' ')}`;
+      
+      // Handle section-specific types with nice names
+      case 'market_research_audience': return 'Audience Analysis';
+      case 'market_research_trends': return 'Market Trends';
+      case 'market_research_competitive': return 'Competitive Analysis';
+      case 'market_research_demand': return 'Demand & Growth';
+      case 'market_research_regulatory': return 'Legal & Regulatory';
+      
+      case 'project_planning_objectives': return 'Objectives & Goals';
+      case 'project_planning_tasks': return 'Tasks & Timeline';
+      case 'project_planning_resources': return 'Resource Allocation';
+      case 'project_planning_risks': return 'Risk Management';
+      case 'project_planning_stakeholders': return 'Stakeholder Analysis';
+      case 'project_planning_metrics': return 'Metrics & Success Criteria';
+      
+      case 'design_development_wireframes': return 'Wireframes';
+      case 'design_development_tech_stack': return 'Tech Stack';
+      case 'design_development_user_journeys': return 'User Journeys';
+      case 'design_development_documentation': return 'Documentation';
+      
+      // Fall back to formatted version of the type
+      default: return `Document - ${type.replace(/_/g, ' ')}`;
     }
   },
   

@@ -1,7 +1,8 @@
-import { Document } from '@/types/supabase';
+import { Document, Idea } from '@/types/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/common';
 import { Save, Edit2 } from 'lucide-react';
 
@@ -10,6 +11,7 @@ interface ProjectOverviewProps {
   sectionContent: Record<string, string>;
   editMode: string | null;
   isSaving: boolean;
+  linkedIdea?: Idea | null;
   onEditSection: (section: string) => void;
   onCancelEdit: () => void;
   onSectionChange: (section: string, content: string) => void;
@@ -21,6 +23,7 @@ export default function ProjectOverview({
   sectionContent,
   editMode,
   isSaving,
+  linkedIdea,
   onEditSection,
   onCancelEdit,
   onSectionChange,
@@ -36,6 +39,59 @@ export default function ProjectOverview({
 
   return (
     <div className="space-y-6">
+      {/* Linked Idea Card */}
+      {linkedIdea && (
+        <div className="border rounded-md p-4 mb-6">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center mb-2">
+                <Badge className="bg-blue-100 text-blue-800 mr-2">Linked Idea</Badge>
+                <h3 className="font-medium">{linkedIdea.title}</h3>
+              </div>
+              
+              <details className="cursor-pointer">
+                <summary className="font-medium text-sm text-blue-600 hover:text-blue-800 transition-colors">
+                  View idea details
+                </summary>
+                <div className="mt-3 space-y-2 p-3 bg-gray-50 rounded-md">
+                  <div>
+                    <h4 className="text-sm font-medium">Description</h4>
+                    <p className="text-sm text-gray-600">{linkedIdea.description}</p>
+                  </div>
+                  
+                  {linkedIdea.target_audience && (
+                    <div>
+                      <h4 className="text-sm font-medium">Target Audience</h4>
+                      <p className="text-sm text-gray-600">{linkedIdea.target_audience}</p>
+                    </div>
+                  )}
+                  
+                  {linkedIdea.problem_solved && (
+                    <div>
+                      <h4 className="text-sm font-medium">Problem Solved</h4>
+                      <p className="text-sm text-gray-600">{linkedIdea.problem_solved}</p>
+                    </div>
+                  )}
+                  
+                  {linkedIdea.tags && linkedIdea.tags.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium">Tags</h4>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {linkedIdea.tags.map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs bg-gray-100">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Description Section */}
       <div className={`prose max-w-none ${editMode === 'description' ? 'bg-blue-100' : 'bg-blue-50'} border border-blue-100 rounded-lg p-4 relative`}>
         <div className="flex justify-between items-center mb-2">

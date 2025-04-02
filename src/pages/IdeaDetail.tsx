@@ -4,6 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Idea } from '@/types/supabase';
+
+// Development flag to use mock data instead of real API calls
+const USE_DEV_MODE = true;
 import { 
   Card,
   CardContent,
@@ -33,6 +36,37 @@ export default function IdeaDetail() {
 
   async function fetchIdea() {
     try {
+      // If in development mode, create a mock idea
+      if (USE_DEV_MODE) {
+        console.log('Using mock idea data in development mode');
+        
+        // Create a mock idea with the requested ID
+        const mockIdea: Idea = {
+          id: ideaId || '',
+          user_id: user?.id || '',
+          title: 'Mock Idea (Dev Mode)',
+          description: 'This is a mock idea created in development mode.',
+          target_audience: 'Developers working on this application',
+          problem_solved: 'The need for reliable data during development',
+          project_id: null,
+          tags: ['dev', 'mock', 'testing'],
+          status: 'draft',
+          created_at: new Date().toISOString(),
+          inspiration_sources: { source: 'Development needs' },
+          collaboration_settings: { visibility: 'private' },
+          version: 1,
+          version_history: []
+        };
+        
+        // Simulate a delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        setIdea(mockIdea);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Standard database query
       const { data, error } = await supabase
         .from('ideas')
         .select('*')
@@ -44,11 +78,40 @@ export default function IdeaDetail() {
       setIdea(data as Idea);
     } catch (error: any) {
       console.error('Error fetching idea:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load idea details',
-        variant: 'destructive',
-      });
+      
+      // Create a fallback idea for display
+      if (ideaId && !USE_DEV_MODE) {
+        const fallbackIdea: Idea = {
+          id: ideaId,
+          user_id: user?.id || '',
+          title: 'Idea (Database Error)',
+          description: 'There was an error fetching this idea from the database.',
+          target_audience: 'N/A',
+          problem_solved: 'N/A',
+          project_id: null,
+          tags: ['error'],
+          status: 'draft',
+          created_at: new Date().toISOString(),
+          inspiration_sources: {},
+          collaboration_settings: { visibility: 'private' },
+          version: 1,
+          version_history: []
+        };
+        
+        setIdea(fallbackIdea);
+        
+        toast({
+          title: 'Warning',
+          description: 'Using local fallback data. Database connection failed.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to load idea details',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +124,29 @@ export default function IdeaDetail() {
 
   const handleEditSubmit = async (updatedIdea: Partial<Idea>) => {
     try {
+      // If in development mode, just update the idea in the local state
+      if (USE_DEV_MODE) {
+        // Merge the updated idea with the current idea
+        if (idea) {
+          const updatedFullIdea: Idea = {
+            ...idea,
+            ...updatedIdea,
+            updated_at: new Date().toISOString()
+          };
+          
+          setIdea(updatedFullIdea);
+          setIsEditDialogOpen(false);
+          
+          toast({
+            title: 'Success',
+            description: 'Idea updated (dev mode)',
+            variant: 'default',
+          });
+        }
+        return;
+      }
+      
+      // Standard database update
       const { data, error } = await supabase
         .from('ideas')
         .update(updatedIdea)
@@ -88,6 +174,19 @@ export default function IdeaDetail() {
 
   const handleDelete = async () => {
     try {
+      // If in development mode, just simulate deletion
+      if (USE_DEV_MODE) {
+        toast({
+          title: 'Success',
+          description: 'Idea deleted (dev mode)',
+          variant: 'default',
+        });
+        
+        navigate('/ideas');
+        return;
+      }
+      
+      // Standard deletion
       const { error } = await supabase
         .from('ideas')
         .delete()
@@ -173,7 +272,9 @@ export default function IdeaDetail() {
         </Button>
         <Button 
           className="bg-blue-600 hover:bg-blue-700"
-          onClick={() => navigate(`/projects/formation?ideaId=${ideaId}`)}>
+          onClick={() => navigate(`/projects/formation?ideaId=${ideaId}`, { 
+            state: { from: `/ideas/${ideaId}` } 
+          })}>
           Start Project
         </Button>
       </div>

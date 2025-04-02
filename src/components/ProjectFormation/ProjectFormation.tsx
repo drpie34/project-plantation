@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -31,9 +31,13 @@ interface ProjectFormationProps {
 
 export default function ProjectFormation({ ideaId, researchId }: ProjectFormationProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { handleError } = useErrorHandler();
+  
+  // Get previous location from state, defaulting to ideas hub or the specific idea detail
+  const previousPath = location.state?.from || (ideaId ? `/ideas/${ideaId}` : '/ideas');
   
   const [idea, setIdea] = useState<Idea | null>(null);
   const [research, setResearch] = useState<any | null>(null);
@@ -1075,8 +1079,8 @@ ${additionalConsiderations || 'No additional considerations defined yet.'}
           )}
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => navigate('/ideas')}>
-            Back to Ideas
+          <Button variant="outline" onClick={() => navigate(previousPath)}>
+            Back
           </Button>
           <div>
             <Button 

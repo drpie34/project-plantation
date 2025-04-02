@@ -86,22 +86,20 @@ export default function NewIdeaDialog({
     isEditing
   });
   
-  // Load user's projects and set initial project when dialog opens
+  // Load user's projects when dialog opens
   useEffect(() => {
     if (isOpen) {
       fetchProjects().then(fetchedProjects => {
-        if (fetchedProjects && fetchedProjects.length > 0) {
-          // If editing, use the project from initialData
-          if (isEditing && initialData) {
-            setSelectedProject(initialData.project_id);
-          } else if (!selectedProject) {
-            // Otherwise, use the first project if none selected
-            setSelectedProject(fetchedProjects[0].id);
-          }
+        // If editing, use the project from initialData
+        if (isEditing && initialData && initialData.project_id) {
+          setSelectedProject(initialData.project_id);
+        } else if (inputMethod === 'manual' && selectedProject === 'none' && fetchedProjects && fetchedProjects.length > 0) {
+          // For manual input, suggest the first project but don't auto-select it
+          // Leave it as "none" by default for Ideas Hub
         }
       });
     }
-  }, [isOpen, fetchProjects, selectedProject, setSelectedProject, isEditing, initialData]);
+  }, [isOpen, fetchProjects, selectedProject, setSelectedProject, isEditing, initialData, inputMethod]);
   
   // Initialize form data with initialData when editing
   useEffect(() => {
@@ -426,31 +424,9 @@ export default function NewIdeaDialog({
                     </div>
                   </div>
                   
-                  {projects.length > 0 ? (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="project" className="text-right">
-                        Project <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex items-center gap-4 col-span-3">
-                        <select
-                          id="project"
-                          className="w-full rounded-md border border-input bg-background px-3 py-2"
-                          value={selectedProject}
-                          onChange={(e) => setSelectedProject(e.target.value)}
-                        >
-                          {projects.map(project => (
-                            <option key={project.id} value={project.id}>
-                              {project.title}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border rounded-md p-4 bg-yellow-50 text-yellow-800 text-sm">
-                      No projects found. A project will be created automatically.
-                    </div>
-                  )}
+                  <div className="border rounded-md p-4 bg-blue-50 text-blue-800 text-sm">
+                    Your idea will be saved to the Ideas Hub. You can later create a project from this idea.
+                  </div>
                   
                   {categories.length > 0 && (
                     <CategorySelector 

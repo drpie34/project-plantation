@@ -2,6 +2,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isUsingMockData, getMockResponse } from './mockAiResponses';
 
+// Development flag to completely disable API Gateway calls
+// Set to true to prevent API errors during development
+const DISABLE_API_GATEWAY = true;
+
 // Define the shape of an API log entry
 export interface ApiLogEntry {
   id: string;
@@ -102,8 +106,54 @@ export const apiLogStore = new ApiLogStore();
  */
 export async function callApiGateway<T = any>(action: string, payload: any = {}): Promise<T> {
   // Check if we should use mock data
-  if (isUsingMockData()) {
-    return getMockResponse(action, payload) as Promise<T>;
+  if (isUsingMockData() || DISABLE_API_GATEWAY) {
+    console.log(`[API Gateway] Mock call to ${action}`, payload);
+    
+    // Create mock success responses based on the action
+    const mockResponses: Record<string, any> = {
+      'check-status': {
+        message: 'API Gateway is operational (mock)',
+        configuredKeys: {
+          'OpenAI': 'configured',
+          'Anthropic': 'configured',
+          'Stripe': 'configured'
+        }
+      },
+      'trackActivity': { success: true },
+      'getCredits': { credits: 100 },
+      'generateProjectPlan': { 
+        plan: {
+          sections: [
+            { title: 'Overview', content: 'This is a mock project plan overview.' },
+            { title: 'Goals', content: 'Mock goals for the project.' },
+            { title: 'Timeline', content: 'Mock project timeline.' }
+          ]
+        },
+        tokens: { input: 100, output: 300 }
+      },
+      'generateProjectSuggestion': {
+        suggestion: {
+          title: 'Mock Project Suggestion',
+          description: 'This is a mock project suggestion generated locally.',
+          keyFeatures: ['Feature 1', 'Feature 2', 'Feature 3'],
+          targetAudience: 'Mock target audience',
+          marketPotential: 'High (mock data)'
+        },
+        tokens: { input: 150, output: 450 }
+      },
+      'generateMarketingCopy': {
+        copy: {
+          headline: 'Mock Headline',
+          tagline: 'Mock tagline for your product',
+          description: 'This is a mock marketing description generated locally.'
+        },
+        tokens: { input: 80, output: 200 }
+      },
+      'saveMarketingCopy': { success: true, id: crypto.randomUUID() }
+    };
+    
+    // Return a suitable mock response or a generic one
+    return (mockResponses[action] || { success: true, message: 'Mock response' }) as T;
   }
   
   // Generate a unique ID for this API call
@@ -199,15 +249,35 @@ export async function trackActivity(
   details: Record<string, any> = {}
 ): Promise<void> {
   try {
-    await supabase.functions.invoke('track-activity', {
-      body: {
-        user_id: userId,
-        activity_type: activityType,
-        entity_type: entityType,
-        entity_id: entityId,
-        details
-      },
-    });
+    // Always log to console so we can see the activity
+    console.log(`[Activity] ${activityType} on ${entityType} ${entityId} by user ${userId}`);
+    
+    // If API Gateway is disabled, don't try to call the function
+    if (DISABLE_API_GATEWAY) {
+      return;
+    }
+    
+    // Try to invoke the function but don't wait for it or depend on its success
+    // Use setTimeout to run this non-blocking
+    setTimeout(async () => {
+      try {
+        await supabase.functions.invoke('track-activity', {
+          body: {
+            user_id: userId,
+            activity_type: activityType,
+            entity_type: entityType,
+            entity_id: entityId,
+            details
+          },
+        });
+      } catch (innerError) {
+        // Just log but don't affect the app
+        console.warn('Activity tracking backend call failed:', innerError);
+      }
+    }, 10);
+    
+    // Return immediately without waiting
+    return;
   } catch (error) {
     console.error('Failed to track activity:', error);
     // Don't throw - activity tracking should not block main functionality

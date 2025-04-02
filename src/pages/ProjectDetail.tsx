@@ -9,11 +9,17 @@ import {
   BarChart,
   FileSearch,
   Code,
-  Lightbulb,
+  ArrowUpRight,
+  FileQuestion,
+  LineChart,
+  Book,
+  ImagePlus,
+  MessageSquare,
 } from 'lucide-react';
 import { TabSystem, TabItem, PageHeader, LoadingSpinner } from '@/components/common';
 import ProjectSharingDialog from '@/components/Collaboration/ProjectSharingDialog';
-import { ProjectOverview, ProjectDocumentChat, ProjectIdeas, useDocumentActions } from '@/components/ProjectDetail';
+import { ProjectOverview, ProjectDocumentChat, useDocumentActions } from '@/components/ProjectDetail';
+import CollaborationTabs from '@/components/Collaboration/CollaborationTabs';
 import { useProjectDetail } from '@/hooks/useProjectDetail';
 
 // Lazy-load tab components
@@ -109,6 +115,7 @@ export default function ProjectDetail() {
             sectionContent={sectionContent}
             editMode={editMode}
             isSaving={isSaving}
+            linkedIdea={ideas.length > 0 ? ideas[0] : null}
             onEditSection={handleEditSection}
             onCancelEdit={handleCancelEdit}
             onSectionChange={handleSectionChange}
@@ -209,13 +216,6 @@ export default function ProjectDetail() {
                 }
               />
             )}
-            <Button 
-              variant="default" 
-              onClick={() => navigate(`/projects/${projectId}/generate-ideas`)}
-            >
-              <Lightbulb className="h-4 w-4 mr-2" />
-              Generate Ideas
-            </Button>
           </div>
         }
         className="flex-col md:flex-row justify-between items-start md:items-center gap-4"
@@ -230,10 +230,10 @@ export default function ProjectDetail() {
         tabsListClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2"
       />
       
-      {/* Only show ideas list when on the overview tab */}
+      {/* Collaboration tools (comments, tasks, activity) - only show on overview tab */}
       {activeTab === 'overview' && projectId && (
         <div className="mt-8">
-          <ProjectIdeas projectId={projectId} ideas={ideas} />
+          <CollaborationTabs projectId={projectId} />
         </div>
       )}
 

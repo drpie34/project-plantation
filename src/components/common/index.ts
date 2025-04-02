@@ -7,3 +7,4 @@ export * from './EmptyState';
 export * from './ErrorDisplay';
 export * from './TabSystem';
 export * from './EmbeddedPage';
+export { default as ContentGenerator } from './ContentGenerator';

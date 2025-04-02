@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Progress } from '@/components/ui/progress';
 import { LinkedinIcon, GithubIcon, GlobeIcon, InfoIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Logo } from '@/components/ui/logo';
 import { 
   Tooltip,
   TooltipContent,

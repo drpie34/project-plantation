@@ -23,15 +23,26 @@ const Dashboard = () => {
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    // Track page view for analytics
+    // Track page view for analytics - wrapped in try/catch to prevent crashes
     if (profile?.id) {
-      callApiGateway('trackActivity', {
-        user_id: profile.id,
-        activity_type: 'page_view',
-        entity_type: 'dashboard',
-        entity_id: 'dashboard',
-        details: { page: 'dashboard' }
-      }).catch(err => console.error('Failed to track activity:', err));
+      try {
+        // Use a timeout to not block the UI rendering
+        setTimeout(() => {
+          callApiGateway('trackActivity', {
+            user_id: profile.id,
+            activity_type: 'page_view',
+            entity_type: 'dashboard',
+            entity_id: 'dashboard',
+            details: { page: 'dashboard' }
+          }).catch(err => {
+            console.error('Failed to track activity:', err);
+            // Don't rethrow, this is non-critical functionality
+          });
+        }, 100);
+      } catch (err) {
+        // Catch any synchronous errors
+        console.error('Error setting up activity tracking:', err);
+      }
     }
     
     // Load recent projects
@@ -50,6 +61,8 @@ const Dashboard = () => {
         setRecentProjects(data || []);
       } catch (err) {
         console.error('Error fetching recent projects:', err);
+        // Set an empty array to prevent undefined errors
+        setRecentProjects([]);
       }
     };
     
@@ -57,7 +70,7 @@ const Dashboard = () => {
   }, [profile?.id]);
 
   const handleGenerateNewIdea = () => {
-    navigate('/ideas', { state: { openNewIdeaModal: true, useAI: true } });
+    navigate('/new-idea');
   };
 
   return (

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SubscriptionTierSwitcher } from '@/components/SubscriptionTierSwitcher';
+import { Logo } from '@/components/ui/logo';
 
 const Profile = () => {
   const { user, profile } = useAuth();

@@ -67,7 +67,7 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
   }
   
   function handleStartProject() {
-    navigate(`/projects/formation?ideaId=${idea.id}`);
+    navigate(`/projects/formation?ideaId=${idea.id}`, { state: { from: '/ideas' } });
   }
   
   return (
@@ -154,20 +154,12 @@ export default function IdeaCard({ idea, categories, onUpdate }: IdeaCardProps) 
           <p className="text-sm text-muted-foreground line-clamp-3">{idea.description}</p>
           
           <div className="mt-4 flex flex-wrap gap-2">
-            <Badge className={statusColors[idea.status] || 'bg-gray-100'}>
-              {idea.status.charAt(0).toUpperCase() + idea.status.slice(1)}
-            </Badge>
-            
             {idea.tags && idea.tags.length > 0 && (
-              idea.tags.slice(0, 2).map((tag, index) => (
+              idea.tags.map((tag, index) => (
                 <Badge key={index} variant="outline">
                   {tag}
                 </Badge>
               ))
-            )}
-            
-            {idea.tags && idea.tags.length > 2 && (
-              <Badge variant="outline">+{idea.tags.length - 2} more</Badge>
             )}
           </div>
         </CardContent>

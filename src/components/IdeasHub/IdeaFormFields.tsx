@@ -55,15 +55,16 @@ const IdeaFormFields = ({
       
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="project" className="text-right">
-          Project <span className="text-red-500">*</span>
+          Project
         </Label>
         <div className="col-span-3">
           {projects.length > 0 ? (
             <Select value={selectedProject} onValueChange={setSelectedProject}>
               <SelectTrigger>
-                <SelectValue placeholder="Select project" />
+                <SelectValue placeholder="Save to Ideas Hub" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">Ideas Hub (No Project)</SelectItem>
                 {projects.map(project => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.title}
@@ -73,7 +74,7 @@ const IdeaFormFields = ({
             </Select>
           ) : (
             <div className="text-sm text-muted-foreground">
-              No projects found. <Button variant="link" className="p-0 h-auto">Create a new project</Button>
+              No projects found. Your idea will be saved to the Ideas Hub.
             </div>
           )}
         </div>

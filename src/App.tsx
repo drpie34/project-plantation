@@ -18,6 +18,7 @@ import Projects from "./pages/Projects";
 import NewProject from "./pages/NewProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import IdeaDetail from "./pages/IdeaDetail";
+import NewIdea from "./pages/NewIdea";
 import GenerateIdeas from "./pages/GenerateIdeas";
 import ProjectPlanning from "./pages/ProjectPlanning";
 import MarketResearch from "./pages/MarketResearch";
@@ -146,6 +147,7 @@ const App = () => {
                 <Route path="/projects/:projectId/visual-planning" element={<VisualPlanning />} />
                 <Route path="/projects/:projectId/marketing-copy" element={<MarketingCopyGenerator />} />
                 <Route path="/ideas" element={<IdeasHub />} />
+                <Route path="/new-idea" element={<NewIdea />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/profile/credits" element={<Credits />} />
               </Route>

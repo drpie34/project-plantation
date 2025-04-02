@@ -40,7 +40,7 @@ export default function IdeasDashboard({
   initialUseAI = false 
 }: IdeasDashboardProps) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [filter, setFilter] = useState({ status: 'all', category: 'all', search: '' });
+  const [filter, setFilter] = useState({ tag: 'all', search: '' });
   const [isNewIdeaOpen, setIsNewIdeaOpen] = useState(initialNewIdeaOpen);
   const [useAI, setUseAI] = useState(initialUseAI);
   const [sortedIdeas, setSortedIdeas] = useState<Idea[]>([]);
@@ -48,7 +48,7 @@ export default function IdeasDashboard({
   const navigate = useNavigate();
   
   const { categories } = useCategories();
-  const { ideas, isLoading, fetchIdeas } = useIdeas({ filter });
+  const { ideas, isLoading, allTags, fetchIdeas } = useIdeas({ filter });
 
   // Setup DnD sensors
   const sensors = useSensors(
@@ -130,7 +130,7 @@ export default function IdeasDashboard({
     }
   }
 
-  const hasFilters = filter.search !== '' || filter.status !== 'all' || filter.category !== 'all';
+  const hasFilters = filter.search !== '' || filter.tag !== 'all';
   
   return (
     <div className="space-y-6">
@@ -154,7 +154,7 @@ export default function IdeasDashboard({
         />
         
         <IdeasFilter 
-          categories={categories}
+          tags={allTags}
           filter={filter}
           onChange={handleFilterChange}
         />

@@ -122,11 +122,12 @@ export type Database = {
           id: string
           inspiration_sources: Json | null
           problem_solved: string | null
-          project_id: string
+          project_id: string | null
           status: string
           tags: string[] | null
           target_audience: string | null
           title: string
+          user_id: string
           version: number
           version_history: Json[] | null
         }
@@ -138,11 +139,12 @@ export type Database = {
           id?: string
           inspiration_sources?: Json | null
           problem_solved?: string | null
-          project_id: string
+          project_id?: string | null
           status?: string
           tags?: string[] | null
           target_audience?: string | null
           title: string
+          user_id: string
           version?: number
           version_history?: Json[] | null
         }
@@ -154,11 +156,12 @@ export type Database = {
           id?: string
           inspiration_sources?: Json | null
           problem_solved?: string | null
-          project_id?: string
+          project_id?: string | null
           status?: string
           tags?: string[] | null
           target_audience?: string | null
           title?: string
+          user_id?: string
           version?: number
           version_history?: Json[] | null
         }
@@ -392,7 +395,8 @@ export type Project = {
 
 export type Idea = {
   id: string;
-  project_id: string;
+  user_id: string; // Add user_id field
+  project_id: string | null; // Make project_id optional since ideas can exist without a project
   title: string;
   description: string | null;
   target_audience: string | null;
@@ -490,11 +494,13 @@ export interface Document {
     | 'project_description'
     | 'project_goals'
     | 'project_features'
-    | 'project_considerations';
+    | 'project_considerations'
+    | string; // Allow other types for backward compatibility
   project_id: string;
   user_id: string;
   created_at: string;
   updated_at: string;
   is_auto_generated: boolean;
   file_path?: string;
+  section_id?: string; // New field to store the specific section identifier
 }
